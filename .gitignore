@@ -1,0 +1,43 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Foundry
+contracts/lib
+contracts/cache
+contracts/out
+contracts/broadcast
+
+# Node / Frontend / Services
+node_modules
+.next
+out
+dist
+build
+coverage
+*.tsbuildinfo
+.turbo
+
+# Envio
+indexer/generated
+indexer/.envio
+
+# Python / Evaluator
+__pycache__
+*.pyc
+.venv
+venv
+env
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+
+# Root documentation files
+/CompSentry_Revised_Project_Documentation.md
+/ComputeGuard_Project_Documentation.md
+/resources.md
