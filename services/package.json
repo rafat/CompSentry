@@ -1,0 +1,25 @@
+{
+  "name": "compsentry-services",
+  "version": "1.0.0",
+  "description": "CompSentry Telemetry Evaluator, Scenario Engine, and Independent Observers",
+  "main": "index.js",
+  "scripts": {
+    "start:evaluator": "tsx evaluator/server.ts",
+    "start:observer-provider": "tsx observer-provider/server.ts",
+    "start:observer-independent": "tsx observer-independent/server.ts",
+    "start:observer-secondary": "tsx observer-secondary/server.ts",
+    "start:all": "tsx run-all.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
