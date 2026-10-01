@@ -1,112 +1,228 @@
-import { ethers } from "ethers";
-import dotenv from "dotenv";
-import { computeConsensus, ObserverTelemetry, ContractSLATerms } from "./consensus";
+import {
+  cre,
+  type Runtime,
+  type CronPayload,
+  type HTTPSendRequester,
+  bytesToHex,
+  encodeCallMsg,
+  getNetwork,
+  prepareReportRequest,
+  LAST_FINALIZED_BLOCK_NUMBER,
+  ok,
+  json,
+  Runner,
+  consensusIdenticalAggregation
+} from "@chainlink/cre-sdk";
+import {
+  type Address,
+  decodeFunctionResult,
+  encodeFunctionData,
+  zeroAddress
+} from "viem";
+import { computeConsensus, type ObserverTelemetry } from "./consensus.js";
+import { type Config, configSchema } from "./config.js";
+import SettlementControllerABI from "./abi/SettlementController.json" with { type: "json" };
+import ComputeSLAHubABI from "./abi/ComputeSLAHub.json" with { type: "json" };
 
-dotenv.config();
-
-const OBSERVER_URLS = [
-  process.env.OBSERVER_PROVIDER_URL || "http://localhost:4001",
-  process.env.OBSERVER_INDEPENDENT_URL || "http://localhost:4002",
-  process.env.OBSERVER_SECONDARY_URL || "http://localhost:4003"
-];
-
-const HUB_ABI = [
-  "function getContract(bytes32 contractId) view returns (tuple(bytes32 contractId, bytes32 offerId, address buyer, address provider, address token, uint256 serviceFee, uint256 providerBond, uint64 startTimestamp, uint64 endTimestamp, uint64 epochDuration, uint32 totalEpochs, uint32 availabilityThresholdBps, uint32 latencyThresholdMs, uint256 epochPayoutCap, uint256 maxTotalPayout, uint8 status))"
-];
-
-const CONTROLLER_ABI = [
-  "function lastSettledEpoch(bytes32 contractId) view returns (uint64)",
-  "function cumulativeRebates(bytes32 contractId) view returns (uint256)",
-  "function cumulativeSlashing(bytes32 contractId) view returns (uint256)",
-  "function settleEpoch(tuple(bytes32 contractId, uint64 epochId, uint64 p95LatencyMs, uint32 availabilityBps, uint64 deliveredUnits, bytes32 evidenceHash, uint64 timestamp, uint8 observerQuorum) report) external",
-  "function isSettled(bytes32 contractId, uint64 epochId) view returns (bool)"
-];
-
-export async function executeCREEpochSettlement(contractId: string) {
-  const rpcUrl = process.env.MONAD_RPC_URL || "http://127.0.0.1:8545";
-  const hubAddress = process.env.COMPUTE_SLA_HUB_ADDRESS;
-  const controllerAddress = process.env.SETTLEMENT_CONTROLLER_ADDRESS;
-  const reporterKey = process.env.CRE_REPORTER_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-
-  if (!hubAddress || !controllerAddress) {
-    throw new Error("Missing contract addresses in environment (COMPUTE_SLA_HUB_ADDRESS, SETTLEMENT_CONTROLLER_ADDRESS)");
+/**
+ * @notice Helper function executed across DON nodes to fetch observer telemetry
+ */
+const fetchObserverTelemetry = (
+  sendRequester: HTTPSendRequester,
+  url: string
+): ObserverTelemetry => {
+  const response = sendRequester.sendRequest({ url, method: "GET" }).result();
+  if (!ok(response)) {
+    throw new Error(`Observer probe request to ${url} failed with status: ${response.statusCode}`);
   }
+  return json(response) as ObserverTelemetry;
+};
 
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new ethers.Wallet(reporterKey, provider);
+/**
+ * @notice CompSentry Chainlink Runtime Environment (CRE) SLA Consensus Workflow
+ * @dev Coordinates decentralized DON execution:
+ *      1. Triggered on recurring cron schedule matching SLA epoch duration
+ *      2. Reads on-chain SLA parameters and settled epoch state
+ *      3. Queries multiple independent observer probes via CRE HTTP capability with DON consensus
+ *      4. Reaches DON consensus on median P95 latency and availability
+ *      5. Submits cryptographically committed SLAReport to Monad SettlementController
+ */
+export async function onEpochCronTrigger(
+  runtime: Runtime<Config>,
+  _payload: CronPayload
+) {
+  runtime.log(`[CRE Workflow] Executing CompSentry SLA verification cycle for contract ${runtime.config.contractId}...`);
 
-  const hubContract = new ethers.Contract(hubAddress, HUB_ABI, provider);
-  const controllerContract = new ethers.Contract(controllerAddress, CONTROLLER_ABI, signer);
+  // 1. Initialize EVM capability on Monad Testnet
+  const network = getNetwork({
+    chainFamily: "evm",
+    chainSelectorName: runtime.config.evm.chainSelectorName || "monad-testnet",
+    isTestnet: true
+  });
 
-  // 1. Fetch on-chain contract terms
-  const slaData = await hubContract.getContract(contractId);
-  const lastEpoch = await controllerContract.lastSettledEpoch(contractId);
-  const cumRebates = await controllerContract.cumulativeRebates(contractId);
-  const cumSlashing = await controllerContract.cumulativeSlashing(contractId);
+  const chainSelector = network ? network.chainSelector.selector : 2183018362218727504n; // monad-testnet default
+  const evmClient = new cre.capabilities.EVMClient(chainSelector);
 
-  const targetEpoch = Number(lastEpoch) + 1;
-  const totalEpochs = Number(slaData.totalEpochs);
+  const controllerAddress = runtime.config.evm.settlementControllerAddress as Address;
+  const hubAddress = runtime.config.evm.hubAddress as Address;
+  const contractId = runtime.config.contractId as `0x${string}`;
+
+  // 2. EVM Read: Fetch last settled epoch from SettlementController
+  const lastEpochCallData = encodeFunctionData({
+    abi: SettlementControllerABI,
+    functionName: "lastSettledEpoch",
+    args: [contractId]
+  });
+
+  const lastEpochCallResult = evmClient
+    .callContract(runtime, {
+      call: encodeCallMsg({
+        from: zeroAddress,
+        to: controllerAddress,
+        data: lastEpochCallData
+      }),
+      blockNumber: LAST_FINALIZED_BLOCK_NUMBER
+    })
+    .result();
+
+  const lastSettledEpoch = Number(
+    decodeFunctionResult({
+      abi: SettlementControllerABI,
+      functionName: "lastSettledEpoch",
+      data: bytesToHex(lastEpochCallResult.data)
+    })
+  );
+
+  // 3. EVM Read: Fetch SLA contract details from ComputeSLAHub
+  const contractCallData = encodeFunctionData({
+    abi: ComputeSLAHubABI,
+    functionName: "getContract",
+    args: [contractId]
+  });
+
+  const contractCallResult = evmClient
+    .callContract(runtime, {
+      call: encodeCallMsg({
+        from: zeroAddress,
+        to: hubAddress,
+        data: contractCallData
+      }),
+      blockNumber: LAST_FINALIZED_BLOCK_NUMBER
+    })
+    .result();
+
+  const slaContract = decodeFunctionResult({
+    abi: ComputeSLAHubABI,
+    functionName: "getContract",
+    data: bytesToHex(contractCallResult.data)
+  }) as any;
+
+  const targetEpoch = lastSettledEpoch + 1;
+  const totalEpochs = Number(slaContract.totalEpochs);
 
   if (targetEpoch > totalEpochs) {
-    console.log(`[CRE Workflow] Contract ${contractId} already fully settled (epoch ${lastEpoch}/${totalEpochs}).`);
-    return null;
+    runtime.log(`[CRE Workflow] Contract ${contractId} has already completed all ${totalEpochs} epochs.`);
+    return { status: "COMPLETED", lastSettledEpoch, totalEpochs };
   }
 
-  console.log(`[CRE Workflow] Settle target epoch ${targetEpoch}/${totalEpochs} for contract ${contractId}`);
+  // 4. Deterministic Epoch Time Window Calculation (derived strictly from contract parameters)
+  const startTimestamp = Number(slaContract.startTimestamp);
+  const epochDuration = Number(slaContract.epochDuration);
 
-  // 2. Query Observers in parallel
-  const telemetryResults: ObserverTelemetry[] = [];
+  const windowStart = startTimestamp + (targetEpoch - 1) * epochDuration;
+  const windowEnd = windowStart + epochDuration;
 
-  for (const url of OBSERVER_URLS) {
+  runtime.log(
+    `[CRE Workflow] Evaluating Target Epoch ${targetEpoch}/${totalEpochs} (Window: ${windowStart} -> ${windowEnd})`
+  );
+
+  // 5. HTTP Fetch: Query 3 independent observer probes via CRE HTTP capability
+  const httpClient = new cre.capabilities.HTTPClient();
+  const rawObservations: ObserverTelemetry[] = [];
+
+  for (const observerBaseUrl of runtime.config.observers) {
+    const url = `${observerBaseUrl}?contractId=${contractId}&windowStart=${windowStart}&windowEnd=${windowEnd}`;
     try {
-      const resp = await fetch(`${url}/telemetry?contractId=${contractId}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        telemetryResults.push(data);
-      }
+      const fetchWithConsensus = httpClient.sendRequest(
+        runtime,
+        fetchObserverTelemetry,
+        consensusIdenticalAggregation<ObserverTelemetry>()
+      );
+      const telemetry = fetchWithConsensus(url).result();
+      rawObservations.push(telemetry);
+      runtime.log(`[CRE Workflow] Received telemetry from ${telemetry.observerId}: ${telemetry.p95LatencyMs}ms, ${telemetry.availabilityBps / 100}% avail`);
     } catch (err: any) {
-      console.warn(`[CRE Workflow] Observer at ${url} unreachable: ${err.message}`);
+      runtime.log(`[CRE Workflow] Observer ${observerBaseUrl} query failed: ${err.message}`);
     }
   }
 
-  console.log(`[CRE Workflow] Collected ${telemetryResults.length} observer responses.`);
+  // 6. Deterministic Consensus Aggregation (median P95 latency + median availability + evidence commitment)
+  const consensus = computeConsensus(
+    rawObservations,
+    {
+      contractId,
+      epochId: targetEpoch,
+      windowStart,
+      windowEnd
+    },
+    runtime.config.minObserverQuorum
+  );
 
-  const terms: ContractSLATerms = {
+  runtime.log(
+    `[CRE Consensus] Epoch ${targetEpoch} Consensus: Median Latency = ${consensus.medianLatencyMs}ms, Availability = ${consensus.consensusAvailabilityBps / 100}%, Quorum = ${consensus.quorumCount}`
+  );
+
+  // 7. Construct Objective SLAReport (Stripped of financial outcomes)
+  const slaReport = {
     contractId,
-    totalEpochs,
-    availabilityThresholdBps: Number(slaData.availabilityThresholdBps),
-    latencyThresholdMs: Number(slaData.latencyThresholdMs),
-    epochPayoutCap: BigInt(slaData.epochPayoutCap),
-    maxTotalPayout: BigInt(slaData.maxTotalPayout),
-    providerBond: BigInt(slaData.providerBond),
-    cumulativeRebates: BigInt(cumRebates),
-    cumulativeSlashing: BigInt(cumSlashing)
-  };
-
-  // 3. Compute Consensus
-  const consensus = computeConsensus(telemetryResults, terms, 2);
-
-  console.log(`[CRE Consensus] Median Latency: ${consensus.medianLatencyMs}ms (Threshold: ${terms.latencyThresholdMs}ms)`);
-  console.log(`[CRE Consensus] Availability: ${(consensus.consensusAvailabilityBps / 100).toFixed(2)}% (Threshold: ${(terms.availabilityThresholdBps / 100).toFixed(2)}%)`);
-  console.log(`[CRE Consensus] Status: ${consensus.status === 0 ? "COMPLIANT" : "BREACHED"}`);
-
-  // 4. Construct SLAReport (Clean objective observations only - zero trusted financial outcomes)
-  const report = {
-    contractId,
-    epochId: targetEpoch,
-    p95LatencyMs: consensus.medianLatencyMs,
+    epochId: BigInt(targetEpoch),
+    p95LatencyMs: BigInt(consensus.medianLatencyMs),
     availabilityBps: consensus.consensusAvailabilityBps,
-    deliveredUnits: consensus.deliveredUnits,
-    evidenceHash: consensus.evidenceHash,
-    timestamp: Math.floor(Date.now() / 1000),
+    deliveredUnits: BigInt(consensus.deliveredUnits),
+    evidenceHash: consensus.evidenceHash as `0x${string}`,
+    timestamp: BigInt(windowEnd), // Strict deterministic epoch timestamp
     observerQuorum: consensus.quorumCount
   };
 
-  // 5. Submit Transaction to Monad
-  const tx = await controllerContract.settleEpoch(report);
-  console.log(`[CRE Workflow] Settle transaction broadcasted: ${tx.hash}`);
-  const receipt = await tx.wait();
-  console.log(`[CRE Workflow] Epoch ${targetEpoch} settled successfully in block ${receipt.blockNumber}`);
+  // 8. EVM Write: Prepare and write report to Monad SettlementController
+  const writeData = encodeFunctionData({
+    abi: SettlementControllerABI,
+    functionName: "settleEpoch",
+    args: [slaReport]
+  });
 
-  return { report, txHash: tx.hash, blockNumber: receipt.blockNumber };
+  const report = runtime.report(prepareReportRequest(writeData)).result();
+
+  const writeResult = evmClient
+    .writeReport(runtime, {
+      receiver: controllerAddress,
+      report
+    })
+    .result();
+
+  runtime.log(`[CRE Settlement] Successfully written report to SettlementController for Epoch ${targetEpoch}. Tx Status: ${writeResult.txStatus}`);
+
+  return {
+    contractId,
+    epochId: targetEpoch,
+    consensus,
+    txStatus: writeResult.txStatus
+  };
+}
+
+export const initWorkflow = (config: Config) => {
+  const cron = new cre.capabilities.CronCapability();
+  return [
+    cre.handler(
+      cron.trigger({ schedule: config.schedule }),
+      onEpochCronTrigger
+    )
+  ];
+};
+
+export async function main() {
+  const runner = await Runner.newRunner<Config>({
+    configParser: (c: any) => configSchema.parse(c)
+  });
+  await runner.run(initWorkflow);
 }

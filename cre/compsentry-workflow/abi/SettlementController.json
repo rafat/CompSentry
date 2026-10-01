@@ -1,0 +1,1002 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "initialOwner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_hub",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_authorizedReporter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "GRACE_PERIOD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_EPOCH_WINDOW_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_FUTURE_DRIFT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_REPORT_AGE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "authorizedReporter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "calculateEpochSettlement",
+    "inputs": [
+      {
+        "name": "sla",
+        "type": "tuple",
+        "internalType": "struct ComputeSLAHub.SLAContract",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "offerId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "buyer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "provider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "serviceFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "providerBond",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "startTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "endTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "epochDuration",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "totalEpochs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "availabilityThresholdBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "latencyThresholdMs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "epochPayoutCap",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxTotalPayout",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum ComputeSLAHub.ContractStatus"
+          }
+        ]
+      },
+      {
+        "name": "ledger",
+        "type": "tuple",
+        "internalType": "struct CollateralVault.VaultLedger",
+        "components": [
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "buyer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "provider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "escrowDeposited",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bondDeposited",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "remainingEscrow",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "remainingBond",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "accruedRebates",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "accruedSlashing",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "earnedServiceFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "finalized",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      },
+      {
+        "name": "report",
+        "type": "tuple",
+        "internalType": "struct SettlementController.SLAReport",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "epochId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "p95LatencyMs",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "availabilityBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "deliveredUnits",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "observerQuorum",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rebateAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "slashingAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "feeEarned",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "breached",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cumulativeRebates",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cumulativeSlashing",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hashReport",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "tuple",
+        "internalType": "struct SettlementController.SLAReport",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "epochId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "p95LatencyMs",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "availabilityBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "deliveredUnits",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "observerQuorum",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hub",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ComputeSLAHub"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isSettled",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastSettledEpoch",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minObserverQuorum",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolveExpiredContract",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolveReviewedContract",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "settleMissingAsBreached",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setAuthorizedReporter",
+    "inputs": [
+      {
+        "name": "_reporter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinObserverQuorum",
+    "inputs": [
+      {
+        "name": "_quorum",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleEpoch",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "tuple",
+        "internalType": "struct SettlementController.SLAReport",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "epochId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "p95LatencyMs",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "availabilityBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "deliveredUnits",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "observerQuorum",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settleEpochWithSignature",
+    "inputs": [
+      {
+        "name": "report",
+        "type": "tuple",
+        "internalType": "struct SettlementController.SLAReport",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "epochId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "p95LatencyMs",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "availabilityBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "deliveredUnits",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "observerQuorum",
+            "type": "uint8",
+            "internalType": "uint8"
+          }
+        ]
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vault",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CollateralVault"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "AuthorizedReporterUpdated",
+    "inputs": [
+      {
+        "name": "oldReporter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newReporter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ContractFlaggedForReview",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "settledEpochs",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EpochSettled",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "epochId",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "p95LatencyMs",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "availabilityBps",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "deliveredUnits",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "rebateAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "slashingAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "observerQuorum",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "breached",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinObserverQuorumUpdated",
+    "inputs": [
+      {
+        "name": "oldQuorum",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "newQuorum",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReviewedContractResolved",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "settleMissingAsBreached",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AlreadyFinalized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ContractNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ContractNotInReview",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ECDSAInvalidSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ECDSAInvalidSignatureLength",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ECDSAInvalidSignatureS",
+    "inputs": [
+      {
+        "name": "s",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "EpochAlreadySettled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FutureReport",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "GracePeriodNotElapsed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientQuorum",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidEpoch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidEpochWindow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnableInvalidOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnableUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PayoutCapExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SlashingCapExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StaleReportTimestamp",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedReporter",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  }
+]

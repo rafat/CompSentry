@@ -1,0 +1,15 @@
+{
+  "schedule": "*/30 * * * * *",
+  "contractId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+  "minObserverQuorum": 2,
+  "observers": [
+    "http://localhost:4001/telemetry",
+    "http://localhost:4002/telemetry",
+    "http://localhost:4003/telemetry"
+  ],
+  "evm": {
+    "chainSelectorName": "monad-testnet",
+    "settlementControllerAddress": "0x0000000000000000000000000000000000000000",
+    "hubAddress": "0x0000000000000000000000000000000000000000"
+  }
+}

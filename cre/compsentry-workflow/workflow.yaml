@@ -1,0 +1,22 @@
+name: compsentry-sla-consensus-workflow
+version: 1.0.0
+owner: compsentry
+description: "Chainlink Runtime Environment (CRE) SLA Consensus and Settlement Workflow on Monad"
+
+triggers:
+  - id: epoch-timer
+    capability: cron-trigger@1.0.0
+    config:
+      schedule: "*/30 * * * * *"
+
+targets:
+  - id: monad-testnet
+    capability: evm@1.0.0
+    config:
+      chainSelector: "2183018362218727504" # monad-testnet
+
+capabilities:
+  - id: observer-http
+    capability: http-actions@1.0.0-alpha
+
+entrypoint: dist/workflow.js
