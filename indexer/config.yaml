@@ -1,0 +1,46 @@
+name: compsentry-indexer
+description: "Envio HyperIndex for CompSentry SLA Micro-Settlement on Monad"
+schema: schema.graphql
+
+contracts:
+  - name: ComputeSLAHub
+    abi_file_path: abis/ComputeSLAHub.json
+    handler: src/EventHandlers.ts
+    events:
+      - event: SLAOfferCreated(bytes32 indexed offerId, address indexed provider, address indexed token, bytes32 resourceId, uint256 serviceFee, uint16 bondBps, uint64 epochDuration, uint32 totalEpochs, uint32 availabilityThresholdBps, uint32 latencyThresholdMs, uint256 epochPayoutCap, uint256 maxTotalPayout)
+      - event: SLAOfferDeactivated(bytes32 indexed offerId)
+      - event: SLAContractActivated(bytes32 indexed contractId, bytes32 indexed offerId, address indexed buyer, address provider, uint256 serviceFee, uint256 providerBond, uint64 startTimestamp, uint64 endTimestamp, uint64 epochDuration, uint32 totalEpochs, uint32 availabilityThresholdBps, uint32 latencyThresholdMs, uint256 epochPayoutCap, uint256 maxTotalPayout)
+      - event: SLAContractStatusUpdated(bytes32 indexed contractId, uint8 oldStatus, uint8 newStatus)
+
+  - name: SettlementController
+    abi_file_path: abis/SettlementController.json
+    handler: src/EventHandlers.ts
+    events:
+      - event: EpochSettled(bytes32 indexed contractId, uint64 indexed epochId, uint64 p95LatencyMs, uint32 availabilityBps, uint64 deliveredUnits, uint256 rebateAmount, uint256 slashingAmount, bytes32 evidenceHash, uint64 timestamp, uint8 observerQuorum, bool breached)
+        field_selection:
+          transaction_fields:
+            - hash
+      - event: ContractFlaggedForReview(bytes32 indexed contractId, uint64 settledEpochs, uint32 totalEpochs)
+      - event: ReviewedContractResolved(bytes32 indexed contractId, bool settleMissingAsBreached)
+
+  - name: CollateralVault
+    abi_file_path: abis/CollateralVault.json
+    handler: src/EventHandlers.ts
+    events:
+      - event: EscrowAndBondDeposited(bytes32 indexed contractId, address indexed token, address indexed buyer, address provider, uint256 escrowAmount, uint256 bondAmount)
+      - event: EpochSettlementProcessed(bytes32 indexed contractId, uint256 feeEarned, uint256 rebateAmount, uint256 slashingAmount, uint256 remainingEscrow, uint256 remainingBond)
+      - event: FundsFinalized(bytes32 indexed contractId, address indexed buyer, uint256 totalToBuyer, address indexed provider, uint256 totalToProvider)
+
+chains:
+  - id: 10143 # Monad Testnet
+    start_block: 0
+    contracts:
+      - name: ComputeSLAHub
+        address:
+          - "0x0000000000000000000000000000000000000001"
+      - name: SettlementController
+        address:
+          - "0x0000000000000000000000000000000000000002"
+      - name: CollateralVault
+        address:
+          - "0x0000000000000000000000000000000000000003"

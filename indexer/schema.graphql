@@ -1,0 +1,113 @@
+type SystemMetrics {
+  id: ID!
+  totalValueLocked: BigInt!
+  totalActiveEscrow: BigInt!
+  totalActiveBond: BigInt!
+  totalSettledRebates: BigInt!
+  totalSlashedBonds: BigInt!
+  totalSettlementsCount: BigInt!
+  totalContractsCount: BigInt!
+  curBps: BigInt!
+}
+
+type Provider {
+  id: ID! # address
+  totalOffers: BigInt!
+  totalContracts: BigInt!
+  activeContracts: BigInt!
+  totalBondStaked: BigInt! # Currently locked active bond
+  totalSlashed: BigInt! # Lifetime permanently slashed
+  totalEarned: BigInt!
+  breachCount: BigInt!
+  compliantEpochsCount: BigInt!
+  priScore: BigInt! # Provider Reliability Index (0 - 10000 bps)
+}
+
+type Buyer {
+  id: ID! # address
+  totalContracts: BigInt!
+  activeContracts: BigInt!
+  totalEscrowFunded: BigInt!
+  totalRebatesReceived: BigInt!
+}
+
+type SLAOffer {
+  id: ID! # bytes32 offerId
+  provider: Provider!
+  token: String!
+  resourceId: String!
+  serviceFee: BigInt!
+  bondBps: BigInt!
+  availabilityThresholdBps: BigInt!
+  latencyThresholdMs: BigInt!
+  epochDuration: BigInt!
+  totalEpochs: BigInt!
+  epochPayoutCap: BigInt!
+  maxTotalPayout: BigInt!
+  active: Boolean!
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+}
+
+type SLAContract {
+  id: ID! # bytes32 contractId
+  offer: SLAOffer!
+  buyer: Buyer!
+  provider: Provider!
+
+  serviceFee: BigInt!
+  providerBond: BigInt!
+
+  currentRemainingEscrow: BigInt!
+  currentRemainingBond: BigInt!
+
+  startTimestamp: BigInt!
+  endTimestamp: BigInt!
+
+  totalEpochs: BigInt!
+  epochDuration: BigInt!
+
+  availabilityThresholdBps: BigInt!
+  latencyThresholdMs: BigInt!
+  epochPayoutCap: BigInt!
+  maxTotalPayout: BigInt!
+
+  settledEpochsCount: BigInt!
+  cumulativeRebates: BigInt!
+  cumulativeSlashing: BigInt!
+
+  status: String! # ACTIVE, REVIEW_REQUIRED, FINALIZED
+
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+}
+
+type EpochSettlement {
+  id: ID! # contractId-epochId
+  contract: SLAContract!
+  epochId: BigInt!
+  p95LatencyMs: BigInt!
+  availabilityBps: BigInt!
+  deliveredUnits: BigInt!
+  rebateAmount: BigInt!
+  slashingAmount: BigInt!
+  evidenceHash: String!
+  status: String! # COMPLIANT, BREACHED
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: String!
+}
+
+type Incident {
+  id: ID! # contractId-epochId
+  contract: SLAContract!
+  epochId: BigInt!
+  p95LatencyMs: BigInt!
+  availabilityBps: BigInt!
+  rebateAmount: BigInt!
+  slashingAmount: BigInt!
+  breachType: String! # LATENCY_BREACH, AVAILABILITY_BREACH, BOTH
+  evidenceHash: String!
+  timestamp: BigInt!
+  txHash: String!
+}

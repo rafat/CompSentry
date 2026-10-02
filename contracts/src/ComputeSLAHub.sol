@@ -7,15 +7,14 @@ import {CollateralVault} from "./CollateralVault.sol";
 /**
  * @title ComputeSLAHub
  * @notice Central registry managing SLA offer templates, buyer activations, and contract state machines.
- * @dev Enforces strict parameter validation (10-25% bond, payout caps) and state machine transitions.
+ * @dev Enforces strict parameter validation (10-25% bond, exact payout caps) and state machine transitions.
  */
 contract ComputeSLAHub is Ownable {
     enum ContractStatus {
         NONE,
-        CREATED,
         ACTIVE,
-        FINALIZED,
-        REVIEW_REQUIRED
+        REVIEW_REQUIRED,
+        FINALIZED
     }
 
     struct SLAOffer {
@@ -71,7 +70,11 @@ contract ComputeSLAHub is Ownable {
         uint256 serviceFee,
         uint16 bondBps,
         uint64 epochDuration,
-        uint32 totalEpochs
+        uint32 totalEpochs,
+        uint32 availabilityThresholdBps,
+        uint32 latencyThresholdMs,
+        uint256 epochPayoutCap,
+        uint256 maxTotalPayout
     );
 
     event SLAOfferDeactivated(bytes32 indexed offerId);
@@ -84,7 +87,13 @@ contract ComputeSLAHub is Ownable {
         uint256 serviceFee,
         uint256 providerBond,
         uint64 startTimestamp,
-        uint64 endTimestamp
+        uint64 endTimestamp,
+        uint64 epochDuration,
+        uint32 totalEpochs,
+        uint32 availabilityThresholdBps,
+        uint32 latencyThresholdMs,
+        uint256 epochPayoutCap,
+        uint256 maxTotalPayout
     );
 
     event SLAContractStatusUpdated(
@@ -142,9 +151,9 @@ contract ComputeSLAHub is Ownable {
         if (availabilityThresholdBps == 0 || availabilityThresholdBps > 10000) revert InvalidParameters();
         if (latencyThresholdMs == 0) revert InvalidParameters();
 
-        // Enforce economic constraints: maxTotalPayout <= serviceFee, epochPayoutCap <= serviceFee / totalEpochs
-        if (maxTotalPayout == 0 || maxTotalPayout > serviceFee) revert InvalidPayoutCap();
-        if (epochPayoutCap == 0 || epochPayoutCap > (serviceFee / totalEpochs)) revert InvalidPayoutCap();
+        // Enforce exact economic equality: maxTotalPayout == serviceFee, epochPayoutCap == serviceFee / totalEpochs
+        if (maxTotalPayout != serviceFee) revert InvalidPayoutCap();
+        if (epochPayoutCap != (serviceFee / totalEpochs)) revert InvalidPayoutCap();
 
         offerId = keccak256(
             abi.encode(
@@ -182,7 +191,11 @@ contract ComputeSLAHub is Ownable {
             serviceFee,
             bondBps,
             epochDuration,
-            totalEpochs
+            totalEpochs,
+            availabilityThresholdBps,
+            latencyThresholdMs,
+            epochPayoutCap,
+            maxTotalPayout
         );
     }
 
@@ -256,7 +269,13 @@ contract ComputeSLAHub is Ownable {
             offer.serviceFee,
             providerBond,
             startTimestamp,
-            endTimestamp
+            endTimestamp,
+            offer.epochDuration,
+            offer.totalEpochs,
+            offer.availabilityThresholdBps,
+            offer.latencyThresholdMs,
+            offer.epochPayoutCap,
+            offer.maxTotalPayout
         );
     }
 
@@ -264,7 +283,6 @@ contract ComputeSLAHub is Ownable {
      * @notice Strict state machine transition validation.
      */
     function _isValidTransition(ContractStatus from, ContractStatus to) internal pure returns (bool) {
-        if (from == ContractStatus.CREATED && to == ContractStatus.ACTIVE) return true;
         if (from == ContractStatus.ACTIVE && to == ContractStatus.FINALIZED) return true;
         if (from == ContractStatus.ACTIVE && to == ContractStatus.REVIEW_REQUIRED) return true;
         if (from == ContractStatus.REVIEW_REQUIRED && to == ContractStatus.FINALIZED) return true;

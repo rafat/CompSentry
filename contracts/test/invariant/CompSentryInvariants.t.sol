@@ -29,6 +29,9 @@ contract Handler is Test {
     uint64 public contractStartTime;
     bool public isFinalized = false;
 
+    // Track strict monotonicity
+    uint64 public monotonicLastEpoch = 0;
+
     constructor(
         MockERC20 _token,
         CollateralVault _vault,
@@ -72,10 +75,10 @@ contract Handler is Test {
         contractStartTime = uint64(block.timestamp);
     }
 
-    function settleNextEpoch(
+    function settleNextEpochValid(
         uint32 latencySeed,
         uint16 availabilitySeed,
-        uint8 quorum
+        uint8 quorumSeed
     ) external {
         if (currentEpoch >= TOTAL_EPOCHS || isFinalized) return;
 
@@ -89,7 +92,7 @@ contract Handler is Test {
         uint64 latency = 50 + (uint64(latencySeed) % 750);
         // Fuzz availability: between 8500 and 10000 bps
         uint32 availability = 8500 + (uint32(availabilitySeed) % 1501);
-        uint8 validQuorum = quorum < 2 ? 2 : (quorum > 5 ? 3 : quorum);
+        uint8 validQuorum = 2 + (quorumSeed % 4); // Quorum between 2 and 5
 
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
             contractId: contractId,
@@ -105,9 +108,63 @@ contract Handler is Test {
         vm.prank(reporter);
         controller.settleEpoch(report);
 
+        // Verify strictly monotonic epoch advancement
+        require(controller.lastSettledEpoch(contractId) == monotonicLastEpoch + 1, "Epoch must advance by exactly 1");
+        monotonicLastEpoch = controller.lastSettledEpoch(contractId);
+
         if (currentEpoch == TOTAL_EPOCHS) {
             isFinalized = true;
         }
+    }
+
+    function trySettleInvalidQuorum(uint8 invalidQuorum) external {
+        if (currentEpoch >= TOTAL_EPOCHS || isFinalized) return;
+
+        uint8 badQuorum = invalidQuorum % 2; // 0 or 1 (strictly below minObserverQuorum = 2)
+        uint64 nextEpoch = currentEpoch + 1;
+        uint64 epochTimestamp = contractStartTime + (nextEpoch - 1) * EPOCH_DURATION + 10;
+        vm.warp(epochTimestamp);
+
+        SettlementController.SLAReport memory report = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: nextEpoch,
+            p95LatencyMs: 100,
+            availabilityBps: 9950,
+            deliveredUnits: 100,
+            evidenceHash: keccak256("bad-quorum"),
+            timestamp: epochTimestamp,
+            observerQuorum: badQuorum
+        });
+
+        vm.prank(reporter);
+        try controller.settleEpoch(report) {
+            revert("Settlement with insufficient quorum must revert");
+        } catch {}
+    }
+
+    function trySettleUnauthorizedCaller(address caller) external {
+        if (caller == reporter) return;
+        if (currentEpoch >= TOTAL_EPOCHS || isFinalized) return;
+
+        uint64 nextEpoch = currentEpoch + 1;
+        uint64 epochTimestamp = contractStartTime + (nextEpoch - 1) * EPOCH_DURATION + 10;
+        vm.warp(epochTimestamp);
+
+        SettlementController.SLAReport memory report = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: nextEpoch,
+            p95LatencyMs: 100,
+            availabilityBps: 9950,
+            deliveredUnits: 100,
+            evidenceHash: keccak256("unauthorized"),
+            timestamp: epochTimestamp,
+            observerQuorum: 2
+        });
+
+        vm.prank(caller);
+        try controller.settleEpoch(report) {
+            revert("Settlement by unauthorized caller must revert");
+        } catch {}
     }
 }
 
@@ -143,7 +200,6 @@ contract CompSentryInvariantsTest is StdInvariant, Test {
     }
 
     // Invariant 4: Exact Liability Conservation
-    // Before finalization: remainingEscrow + remainingBond + accruedRebates + accruedSlashing + earnedServiceFee == escrowDeposited + bondDeposited
     function invariant_ExactLiabilityConservation() public view {
         bytes32 contractId = handler.contractId();
         CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
@@ -160,7 +216,7 @@ contract CompSentryInvariantsTest is StdInvariant, Test {
         }
     }
 
-    // Invariant 2 & 5: Bounded Rebates (Cumulative rebates <= maxTotalPayout)
+    // Invariant 2: Bounded Rebates (Cumulative rebates <= maxTotalPayout)
     function invariant_BoundedPayouts() public view {
         bytes32 contractId = handler.contractId();
         ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
@@ -168,7 +224,7 @@ contract CompSentryInvariantsTest is StdInvariant, Test {
         assertLe(totalRebates, sla.maxTotalPayout, "Rebates must not exceed maxTotalPayout");
     }
 
-    // Invariant 3 & 6: Bounded Slashing (Cumulative slashing <= providerBond)
+    // Invariant 3: Bounded Slashing (Cumulative slashing <= providerBond)
     function invariant_BoundedSlashing() public view {
         bytes32 contractId = handler.contractId();
         ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
@@ -176,8 +232,8 @@ contract CompSentryInvariantsTest is StdInvariant, Test {
         assertLe(totalSlashing, sla.providerBond, "Slashing must not exceed initial providerBond");
     }
 
-    // Invariant 8: Epoch Monotonicity
-    function invariant_EpochMonotonicity() public view {
+    // Invariant 8: Epoch Boundedness (Renamed from Monotonicity for precision; Monotonicity is verified on-chain and in Handler)
+    function invariant_EpochBoundedness() public view {
         bytes32 contractId = handler.contractId();
         uint64 lastEpoch = controller.lastSettledEpoch(contractId);
         assertLe(lastEpoch, handler.TOTAL_EPOCHS(), "Settled epoch must never exceed totalEpochs");

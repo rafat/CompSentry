@@ -120,7 +120,7 @@ contract CompSentryHubAndVaultTest is Test {
         );
     }
 
-    function test_CreateOffer_RevertPayoutCapExceedsServiceFee() public {
+    function test_CreateOffer_RevertPayoutCapMismatch() public {
         vm.prank(provider);
         vm.expectRevert(ComputeSLAHub.InvalidPayoutCap.selector);
         hub.createOffer(
@@ -133,11 +133,11 @@ contract CompSentryHubAndVaultTest is Test {
             AVAILABILITY_BPS,
             LATENCY_MS,
             EPOCH_CAP,
-            SERVICE_FEE + 1 // maxTotalPayout > serviceFee
+            SERVICE_FEE - 1 // maxTotalPayout != serviceFee
         );
     }
 
-    function test_CreateOffer_RevertEpochCapExceedsEpochFee() public {
+    function test_CreateOffer_RevertEpochCapMismatch() public {
         vm.prank(provider);
         vm.expectRevert(ComputeSLAHub.InvalidPayoutCap.selector);
         hub.createOffer(
@@ -149,7 +149,7 @@ contract CompSentryHubAndVaultTest is Test {
             TOTAL_EPOCHS,
             AVAILABILITY_BPS,
             LATENCY_MS,
-            (SERVICE_FEE / TOTAL_EPOCHS) + 1, // epochPayoutCap > serviceFee / totalEpochs
+            (SERVICE_FEE / TOTAL_EPOCHS) - 1, // epochPayoutCap != serviceFee / totalEpochs
             MAX_PAYOUT
         );
     }

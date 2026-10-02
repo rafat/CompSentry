@@ -60,7 +60,13 @@ export async function onEpochCronTrigger(
     isTestnet: true
   });
 
-  const chainSelector = network ? network.chainSelector.selector : 2183018362218727504n; // monad-testnet default
+  if (!network) {
+    throw new Error(
+      `Unsupported CRE network: ${runtime.config.evm.chainSelectorName}. Please ensure this network is registered in CRE SDK.`
+    );
+  }
+
+  const chainSelector = network.chainSelector.selector;
   const evmClient = new cre.capabilities.EVMClient(chainSelector);
 
   const controllerAddress = runtime.config.evm.settlementControllerAddress as Address;
@@ -141,7 +147,7 @@ export async function onEpochCronTrigger(
   const rawObservations: ObserverTelemetry[] = [];
 
   for (const observerBaseUrl of runtime.config.observers) {
-    const url = `${observerBaseUrl}?contractId=${contractId}&windowStart=${windowStart}&windowEnd=${windowEnd}`;
+    const url = `${observerBaseUrl}?contractId=${contractId}&epochId=${targetEpoch}&windowStart=${windowStart}&windowEnd=${windowEnd}`;
     try {
       const fetchWithConsensus = httpClient.sendRequest(
         runtime,
@@ -173,6 +179,8 @@ export async function onEpochCronTrigger(
   );
 
   // 7. Construct Objective SLAReport (Stripped of financial outcomes)
+  // NOTE: SLAReport.timestamp represents the canonical epoch observation boundary (windowEnd),
+  // while the evidence hash commits to the underlying observer measurements and their timestamps.
   const slaReport = {
     contractId,
     epochId: BigInt(targetEpoch),
@@ -180,7 +188,7 @@ export async function onEpochCronTrigger(
     availabilityBps: consensus.consensusAvailabilityBps,
     deliveredUnits: BigInt(consensus.deliveredUnits),
     evidenceHash: consensus.evidenceHash as `0x${string}`,
-    timestamp: BigInt(windowEnd), // Strict deterministic epoch timestamp
+    timestamp: BigInt(windowEnd), // Strict deterministic epoch boundary timestamp
     observerQuorum: consensus.quorumCount
   };
 

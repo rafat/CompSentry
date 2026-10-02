@@ -10,7 +10,8 @@ import {CollateralVault} from "./CollateralVault.sol";
 /**
  * @title SettlementController
  * @notice Verifies objective Chainlink CRE observations and calculates deterministic on-chain payouts.
- * @dev Strips all trusted financial outcomes from reports. Enforces strict timestamp drift and epoch windows.
+ * @dev Strips all trusted financial outcomes from reports. Enforces strict timestamp drift, epoch windows,
+ *      and provides an explicit administrative review resolution mechanism for contracts flagged with missing epochs.
  */
 contract SettlementController is Ownable {
     using ECDSA for bytes32;
@@ -27,10 +28,10 @@ contract SettlementController is Ownable {
         uint8 observerQuorum;
     }
 
-    uint256 public constant MAX_REPORT_AGE = 120;   // 2 minutes max age against current block.timestamp
-    uint256 public constant MAX_FUTURE_DRIFT = 30;  // 30 seconds max future drift against block.timestamp
+    uint256 public constant MAX_REPORT_AGE = 120;        // 2 minutes max age against current block.timestamp
+    uint256 public constant MAX_FUTURE_DRIFT = 30;       // 30 seconds max future drift against block.timestamp
     uint256 public constant MAX_EPOCH_WINDOW_DELAY = 30; // 30 seconds tolerance after epoch end
-    uint256 public constant GRACE_PERIOD = 300;     // 5 minutes grace period for expired contracts
+    uint256 public constant GRACE_PERIOD = 300;          // 5 minutes grace period for expired contracts
 
     ComputeSLAHub public hub;
     CollateralVault public vault;
@@ -63,6 +64,11 @@ contract SettlementController is Ownable {
         uint32 totalEpochs
     );
 
+    event ReviewedContractResolved(
+        bytes32 indexed contractId,
+        bool settleMissingAsBreached
+    );
+
     event AuthorizedReporterUpdated(address indexed oldReporter, address indexed newReporter);
     event MinObserverQuorumUpdated(uint8 oldQuorum, uint8 newQuorum);
 
@@ -70,6 +76,7 @@ contract SettlementController is Ownable {
     error InvalidEpoch();
     error EpochAlreadySettled();
     error ContractNotActive();
+    error ContractNotInReview();
     error InsufficientQuorum();
     error StaleReportTimestamp();
     error FutureReport();
@@ -82,7 +89,7 @@ contract SettlementController is Ownable {
     error AlreadyFinalized();
 
     modifier onlyAuthorized() {
-        if (msg.sender != authorizedReporter && msg.sender != owner()) {
+        if (msg.sender != authorizedReporter) {
             revert UnauthorizedReporter();
         }
         _;
@@ -155,7 +162,7 @@ contract SettlementController is Ownable {
             ? ledger.remainingEscrow
             : (sla.serviceFee / sla.totalEpochs);
 
-        // 2. Evaluate SLA compliance
+        // 2. Evaluate SLA compliance (boundary: at or below threshold is compliant)
         bool latencyBreach = report.p95LatencyMs > sla.latencyThresholdMs;
         bool availabilityBreach = report.availabilityBps < sla.availabilityThresholdBps;
         breached = latencyBreach || availabilityBreach;
@@ -317,5 +324,37 @@ contract SettlementController is Ownable {
             hub.updateContractStatus(contractId, ComputeSLAHub.ContractStatus.FINALIZED);
             vault.finalizeContract(contractId);
         }
+    }
+
+    /**
+     * @notice Admin exception handling to resolve a contract flagged in REVIEW_REQUIRED.
+     * @param contractId The contract identifier.
+     * @param settleMissingAsBreached If true, remaining escrow is credited to buyer as a rebate.
+     *                                If false, remaining escrow is returned to buyer unpenalized.
+     */
+    function resolveReviewedContract(
+        bytes32 contractId,
+        bool settleMissingAsBreached
+    ) external onlyOwner {
+        ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
+        if (sla.status != ComputeSLAHub.ContractStatus.REVIEW_REQUIRED) {
+            revert ContractNotInReview();
+        }
+
+        CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
+
+        if (settleMissingAsBreached && ledger.remainingEscrow > 0) {
+            vault.processEpochSettlement(
+                contractId,
+                0,
+                ledger.remainingEscrow,
+                0
+            );
+        }
+
+        hub.updateContractStatus(contractId, ComputeSLAHub.ContractStatus.FINALIZED);
+        vault.finalizeContract(contractId);
+
+        emit ReviewedContractResolved(contractId, settleMissingAsBreached);
     }
 }

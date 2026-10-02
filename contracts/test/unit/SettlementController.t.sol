@@ -146,12 +146,133 @@ contract SettlementControllerTest is Test {
         assertEq(ledger.remainingEscrow, 200e6);
     }
 
-    // Security Test A & B: Malicious Payout / Fake Breach Attempt
+    // Security Test: Owner cannot submit settlements directly (enforces separation of powers)
+    function test_Security_OwnerCannotSubmitSettlements() public {
+        uint64 epochTs = getEpochTimestamp(1);
+        vm.warp(epochTs);
+
+        SettlementController.SLAReport memory report = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 80,
+            availabilityBps: 10000,
+            deliveredUnits: 100,
+            evidenceHash: keccak256("owner-settle"),
+            timestamp: epochTs,
+            observerQuorum: 2
+        });
+
+        // Calling from owner (address(this)) must revert UnauthorizedReporter
+        vm.expectRevert(SettlementController.UnauthorizedReporter.selector);
+        controller.settleEpoch(report);
+    }
+
+    // Security Test: Boundary Condition - exactly at threshold is compliant
+    function test_Security_BoundaryConditions_ExactThresholdIsCompliant() public {
+        uint64 epochTs = getEpochTimestamp(1);
+        vm.warp(epochTs);
+
+        // Latency exactly 200ms, Availability exactly 9900 bps
+        SettlementController.SLAReport memory report = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 200, // exactly threshold
+            availabilityBps: 9900, // exactly threshold
+            deliveredUnits: 100,
+            evidenceHash: keccak256("exact-boundary"),
+            timestamp: epochTs,
+            observerQuorum: 2
+        });
+
+        vm.prank(reporter);
+        controller.settleEpoch(report);
+
+        // Must be compliant: 0 rebate, 0 slash
+        assertEq(controller.cumulativeRebates(contractId), 0);
+        assertEq(controller.cumulativeSlashing(contractId), 0);
+        CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
+        assertEq(ledger.earnedServiceFee, 100e6);
+    }
+
+    // Direct test table for calculateEpochSettlement()
+    function test_CalculateEpochSettlement_Matrix() public view {
+        ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
+        CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
+
+        // Case 1: 100ms, 10000 bps -> Compliant (0 rebate, 0 slash, 100 fee)
+        SettlementController.SLAReport memory r1 = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 100,
+            availabilityBps: 10000,
+            deliveredUnits: 100,
+            evidenceHash: bytes32(0),
+            timestamp: 0,
+            observerQuorum: 2
+        });
+        (uint256 reb1, uint256 slash1, uint256 fee1, bool br1) = controller.calculateEpochSettlement(sla, ledger, r1);
+        assertFalse(br1);
+        assertEq(reb1, 0);
+        assertEq(slash1, 0);
+        assertEq(fee1, 100e6);
+
+        // Case 2: 250ms, 10000 bps -> Minor breach (50% rebate, 0 slash, 50% fee)
+        SettlementController.SLAReport memory r2 = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 250,
+            availabilityBps: 10000,
+            deliveredUnits: 100,
+            evidenceHash: bytes32(0),
+            timestamp: 0,
+            observerQuorum: 2
+        });
+        (uint256 reb2, uint256 slash2, uint256 fee2, bool br2) = controller.calculateEpochSettlement(sla, ledger, r2);
+        assertTrue(br2);
+        assertEq(reb2, 50e6);
+        assertEq(slash2, 0);
+        assertEq(fee2, 50e6);
+
+        // Case 3: 500ms, 10000 bps -> Major latency breach (>1.5x) (100% rebate, 15% epoch bond slash, 0 fee)
+        SettlementController.SLAReport memory r3 = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 500,
+            availabilityBps: 10000,
+            deliveredUnits: 100,
+            evidenceHash: bytes32(0),
+            timestamp: 0,
+            observerQuorum: 2
+        });
+        (uint256 reb3, uint256 slash3, uint256 fee3, bool br3) = controller.calculateEpochSettlement(sla, ledger, r3);
+        assertTrue(br3);
+        assertEq(reb3, 100e6);
+        assertEq(slash3, (45e6 / 3 * 15) / 100); // 15% of 15 USDC = 2.25 USDC
+        assertEq(fee3, 0);
+
+        // Case 4: 180ms, 9000 bps -> Major availability breach (<9500) (100% rebate, proportional slash, 0 fee)
+        SettlementController.SLAReport memory r4 = SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 1,
+            p95LatencyMs: 180,
+            availabilityBps: 9000,
+            deliveredUnits: 100,
+            evidenceHash: bytes32(0),
+            timestamp: 0,
+            observerQuorum: 2
+        });
+        (uint256 reb4, uint256 slash4, uint256 fee4, bool br4) = controller.calculateEpochSettlement(sla, ledger, r4);
+        assertTrue(br4);
+        assertEq(reb4, 100e6);
+        assertTrue(slash4 > 0);
+        assertEq(fee4, 0);
+    }
+
+    // Security Test: Malicious Reporter Cannot Fabricate Payout
     function test_Security_MaliciousReporterCannotFabricatePayout() public {
         uint64 epochTs = getEpochTimestamp(1);
         vm.warp(epochTs);
 
-        // Reporter reports compliant performance (50ms latency, 100% availability)
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
             contractId: contractId,
             epochId: 1,
@@ -166,20 +287,18 @@ contract SettlementControllerTest is Test {
         vm.prank(reporter);
         controller.settleEpoch(report);
 
-        // Contract deterministically calculates 0 rebate and 0 slashing regardless of reporter intentions
         assertEq(controller.cumulativeRebates(contractId), 0);
         assertEq(controller.cumulativeSlashing(contractId), 0);
 
         CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
         assertEq(ledger.accruedRebates, 0);
         assertEq(ledger.accruedSlashing, 0);
-        assertEq(ledger.earnedServiceFee, 100e6); // Provider is fairly paid
+        assertEq(ledger.earnedServiceFee, 100e6);
     }
 
-    // Security Test C: Stale Report Timestamp Revert
+    // Security Test: Stale Report Timestamp Revert
     function test_Security_RevertStaleReport() public {
         uint64 epochTs = getEpochTimestamp(1);
-        // Warp current time past report timestamp by more than 2 minutes (MAX_REPORT_AGE = 120s)
         vm.warp(epochTs + 125);
 
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
@@ -198,12 +317,11 @@ contract SettlementControllerTest is Test {
         controller.settleEpoch(report);
     }
 
-    // Security Test D: Future Report Timestamp Revert
+    // Security Test: Future Report Timestamp Revert
     function test_Security_RevertFutureReport() public {
         uint64 epochTs = getEpochTimestamp(1);
         vm.warp(epochTs);
 
-        // Report timestamp is 35 seconds into future (MAX_FUTURE_DRIFT = 30s)
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
             contractId: contractId,
             epochId: 1,
@@ -220,21 +338,19 @@ contract SettlementControllerTest is Test {
         controller.settleEpoch(report);
     }
 
-    // Security Test E: Wrong Epoch Window Timestamp Revert
+    // Security Test: Wrong Epoch Window Timestamp Revert
     function test_Security_RevertWrongEpochWindow() public {
-        // Warp time to epoch 3 window
         uint64 epoch3Ts = getEpochTimestamp(3);
         vm.warp(epoch3Ts);
 
-        // But reporter submits epoch 1 using epoch 3 timestamp
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
             contractId: contractId,
-            epochId: 1, // Epoch 1 expected timestamp is between 0 and 30s
+            epochId: 1,
             p95LatencyMs: 80,
             availabilityBps: 10000,
             deliveredUnits: 100,
             evidenceHash: keccak256("wrong-window"),
-            timestamp: epoch3Ts, // Epoch 3 timestamp is at 60s+
+            timestamp: epoch3Ts,
             observerQuorum: 2
         });
 
@@ -243,12 +359,13 @@ contract SettlementControllerTest is Test {
         controller.settleEpoch(report);
     }
 
-    // Security Test G: Expiry with Missing Epochs Transitions to REVIEW_REQUIRED
-    function test_Security_ExpiryWithMissingEpochsFlagsReview() public {
-        // Settle only epoch 1
+    // Security Test: Expiry with Missing Epochs Flags REVIEW_REQUIRED, and ResolveReviewedContract finalizes cleanly
+    function test_Security_ExpiryAndResolutionPath() public {
+        // Settle epoch 1
         uint64 epoch1Ts = getEpochTimestamp(1);
         vm.warp(epoch1Ts);
 
+        vm.prank(reporter);
         controller.settleEpoch(SettlementController.SLAReport({
             contractId: contractId,
             epochId: 1,
@@ -260,31 +377,52 @@ contract SettlementControllerTest is Test {
             observerQuorum: 2
         }));
 
-        // Contract has 3 epochs total. Provider disappears. Epochs 2 & 3 not settled.
-        // Warp time past contract endTimestamp + GRACE_PERIOD (300s)
+        // Provider offline for epochs 2 & 3. Time passes expiration + grace period.
         ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
         vm.warp(sla.endTimestamp + 301);
 
-        // Resolve expired contract
+        // Step 1: Flagged for review
         controller.resolveExpiredContract(contractId);
+        assertEq(uint256(hub.getContract(contractId).status), uint256(ComputeSLAHub.ContractStatus.REVIEW_REQUIRED));
 
-        // Status must be REVIEW_REQUIRED (not FINALIZED)
-        ComputeSLAHub.SLAContract memory slaAfter = hub.getContract(contractId);
-        assertEq(uint256(slaAfter.status), uint256(ComputeSLAHub.ContractStatus.REVIEW_REQUIRED));
+        // Step 2: Cannot settle epochs while in REVIEW_REQUIRED
+        vm.prank(reporter);
+        vm.expectRevert(SettlementController.ContractNotActive.selector);
+        controller.settleEpoch(SettlementController.SLAReport({
+            contractId: contractId,
+            epochId: 2,
+            p95LatencyMs: 80,
+            availabilityBps: 10000,
+            deliveredUnits: 100,
+            evidenceHash: keccak256("epoch-2"),
+            timestamp: uint64(block.timestamp),
+            observerQuorum: 2
+        }));
+
+        // Step 3: Admin resolves the reviewed contract (treat missing as breached)
+        controller.resolveReviewedContract(contractId, true);
+
+        // Status is now FINALIZED
+        assertEq(uint256(hub.getContract(contractId).status), uint256(ComputeSLAHub.ContractStatus.FINALIZED));
+        CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
+        assertTrue(ledger.finalized);
+
+        // All funds disbursed, vault balance 0
+        assertEq(token.balanceOf(address(vault)), 0);
     }
 
-    // Security Test H: Bond Exhaustion Cap
+    // Security Test: Bond Exhaustion Cap
     function test_Security_BondSlashingBoundedAtZero() public {
-        // Run repeated severe breaches
         for (uint64 ep = 1; ep <= TOTAL_EPOCHS; ep++) {
             uint64 ts = getEpochTimestamp(ep);
             vm.warp(ts);
 
+            vm.prank(reporter);
             controller.settleEpoch(SettlementController.SLAReport({
                 contractId: contractId,
                 epochId: ep,
                 p95LatencyMs: 900,
-                availabilityBps: 1000, // Severe 90% failure
+                availabilityBps: 1000,
                 deliveredUnits: 10,
                 evidenceHash: keccak256(abi.encode(ep)),
                 timestamp: ts,
@@ -292,14 +430,13 @@ contract SettlementControllerTest is Test {
             }));
         }
 
-        // Cumulative slashing must not exceed initial bond (45 USDC)
         ComputeSLAHub.SLAContract memory sla = hub.getContract(contractId);
         assertLe(controller.cumulativeSlashing(contractId), sla.providerBond);
         CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
         assertEq(ledger.remainingBond, 0);
     }
 
-    // Security Test I: Signature Verification
+    // Security Test: Signature Verification
     function test_SettleEpoch_WithSignature() public {
         uint64 epochTs = getEpochTimestamp(1);
         vm.warp(epochTs);
@@ -319,7 +456,6 @@ contract SettlementControllerTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(reporterPrivateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        // Any relayer can submit the signed report
         address relayer = address(0x999);
         vm.prank(relayer);
         controller.settleEpochWithSignature(report, signature);
@@ -363,7 +499,7 @@ contract SettlementControllerTest is Test {
             deliveredUnits: 100,
             evidenceHash: keccak256("insufficient-quorum"),
             timestamp: epochTs,
-            observerQuorum: 1 // Only 1 observer (min required is 2)
+            observerQuorum: 1
         });
 
         vm.prank(reporter);
@@ -389,7 +525,6 @@ contract SettlementControllerTest is Test {
         vm.prank(reporter);
         controller.settleEpoch(report);
 
-        // Attempting to settle epoch 1 again
         vm.prank(reporter);
         vm.expectRevert(SettlementController.InvalidEpoch.selector);
         controller.settleEpoch(report);
@@ -401,7 +536,7 @@ contract SettlementControllerTest is Test {
 
         SettlementController.SLAReport memory report = SettlementController.SLAReport({
             contractId: contractId,
-            epochId: 2, // Cannot skip epoch 1
+            epochId: 2,
             p95LatencyMs: 90,
             availabilityBps: 10000,
             deliveredUnits: 100,
@@ -419,9 +554,10 @@ contract SettlementControllerTest is Test {
         uint256 buyerBalanceInitial = token.balanceOf(buyer);
         uint256 providerBalanceInitial = token.balanceOf(provider);
 
-        // Epoch 1: Compliant (provider earns 100 USDC)
+        // Epoch 1: Compliant
         uint64 ep1Ts = getEpochTimestamp(1);
         vm.warp(ep1Ts);
+        vm.prank(reporter);
         controller.settleEpoch(SettlementController.SLAReport({
             contractId: contractId,
             epochId: 1,
@@ -433,9 +569,10 @@ contract SettlementControllerTest is Test {
             observerQuorum: 3
         }));
 
-        // Epoch 2: Breached (buyer gets 100 USDC rebate + slashed bond)
+        // Epoch 2: Breached
         uint64 ep2Ts = getEpochTimestamp(2);
         vm.warp(ep2Ts);
+        vm.prank(reporter);
         controller.settleEpoch(SettlementController.SLAReport({
             contractId: contractId,
             epochId: 2,
@@ -447,9 +584,10 @@ contract SettlementControllerTest is Test {
             observerQuorum: 3
         }));
 
-        // Epoch 3 (Final): Compliant (provider earns 100 USDC)
+        // Epoch 3 (Final): Compliant
         uint64 ep3Ts = getEpochTimestamp(3);
         vm.warp(ep3Ts);
+        vm.prank(reporter);
         controller.settleEpoch(SettlementController.SLAReport({
             contractId: contractId,
             epochId: 3,
@@ -468,10 +606,8 @@ contract SettlementControllerTest is Test {
         CollateralVault.VaultLedger memory ledger = vault.getLedger(contractId);
         assertTrue(ledger.finalized);
 
-        // Vault token balance must be exactly 0 (full conservation)
         assertEq(token.balanceOf(address(vault)), 0);
 
-        // Disbursed funds conservation: sum of disbursements equals initial escrow + bond
         uint256 buyerReceived = token.balanceOf(buyer) - buyerBalanceInitial;
         uint256 providerReceived = token.balanceOf(provider) - providerBalanceInitial;
         assertEq(buyerReceived + providerReceived, SERVICE_FEE + ((SERVICE_FEE * BOND_BPS) / 10000));
