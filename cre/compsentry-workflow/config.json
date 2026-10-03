@@ -9,7 +9,7 @@
   ],
   "evm": {
     "chainSelectorName": "monad-testnet",
-    "settlementControllerAddress": "0x0000000000000000000000000000000000000000",
-    "hubAddress": "0x0000000000000000000000000000000000000000"
+    "settlementControllerAddress": "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f",
+    "hubAddress": "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB"
   }
 }
