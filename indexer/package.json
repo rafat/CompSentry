@@ -1,6 +1,7 @@
 {
   "name": "compsentry-indexer",
   "version": "1.0.0",
+  "type": "module",
   "description": "Envio HyperIndex for CompSentry on Monad",
   "scripts": {
     "codegen": "envio codegen",

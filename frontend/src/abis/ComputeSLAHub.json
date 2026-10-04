@@ -1,0 +1,927 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "initialOwner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "MAX_BOND_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_BOND_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "activateContract",
+    "inputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "contractNonce",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "contracts",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "buyer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "serviceFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "providerBond",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "epochDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "availabilityThresholdBps",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "latencyThresholdMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "epochPayoutCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxTotalPayout",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createOffer",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "resourceId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "serviceFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bondBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "epochDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "availabilityThresholdBps",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "latencyThresholdMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "epochPayoutCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxTotalPayout",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deactivateOffer",
+    "inputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getContract",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ComputeSLAHub.SLAContract",
+        "components": [
+          {
+            "name": "contractId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "offerId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "buyer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "provider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "serviceFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "providerBond",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "startTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "endTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "epochDuration",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "totalEpochs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "availabilityThresholdBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "latencyThresholdMs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "epochPayoutCap",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxTotalPayout",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum ComputeSLAHub.ContractStatus"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOffer",
+    "inputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ComputeSLAHub.SLAOffer",
+        "components": [
+          {
+            "name": "offerId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "provider",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "resourceId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "serviceFee",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bondBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "epochDuration",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "totalEpochs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "availabilityThresholdBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "latencyThresholdMs",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "epochPayoutCap",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxTotalPayout",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "offers",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "resourceId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "serviceFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bondBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "epochDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "availabilityThresholdBps",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "latencyThresholdMs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "epochPayoutCap",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxTotalPayout",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSettlementController",
+    "inputs": [
+      {
+        "name": "_controller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "settlementController",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateContractStatus",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newStatus",
+        "type": "uint8",
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vault",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CollateralVault"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SLAContractActivated",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "serviceFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "providerBond",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "startTimestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "endTimestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "epochDuration",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "availabilityThresholdBps",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "latencyThresholdMs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "epochPayoutCap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxTotalPayout",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SLAContractStatusUpdated",
+    "inputs": [
+      {
+        "name": "contractId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "oldStatus",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      },
+      {
+        "name": "newStatus",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SLAOfferCreated",
+    "inputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "resourceId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "serviceFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "bondBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "epochDuration",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "totalEpochs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "availabilityThresholdBps",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "latencyThresholdMs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "epochPayoutCap",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxTotalPayout",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SLAOfferDeactivated",
+    "inputs": [
+      {
+        "name": "offerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SettlementControllerUpdated",
+    "inputs": [
+      {
+        "name": "oldController",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newController",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ContractNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBondBps",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidParameters",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidPayoutCap",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidStateTransition",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "uint8",
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      },
+      {
+        "name": "to",
+        "type": "uint8",
+        "internalType": "enum ComputeSLAHub.ContractStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OfferNotActive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OfferNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnableInvalidOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnableUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCaller",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  }
+]

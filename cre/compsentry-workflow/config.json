@@ -1,6 +1,6 @@
 {
   "schedule": "*/30 * * * * *",
-  "contractId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+  "contractId": "0x9795176caf70852d6d691f238a562c1cff9c48219f612ec37826b729903b9c21",
   "minObserverQuorum": 2,
   "observers": [
     "http://localhost:4001/telemetry",

@@ -1,6 +1,6 @@
-import ComputeSLAHubABI from "../../../indexer/abis/ComputeSLAHub.json";
-import SettlementControllerABI from "../../../indexer/abis/SettlementController.json";
-import CollateralVaultABI from "../../../indexer/abis/CollateralVault.json";
+import ComputeSLAHubABI from "@/abis/ComputeSLAHub.json";
+import SettlementControllerABI from "@/abis/SettlementController.json";
+import CollateralVaultABI from "@/abis/CollateralVault.json";
 
 export const CONTRACT_ADDRESSES = {
   hub: (process.env.NEXT_PUBLIC_HUB_ADDRESS || "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB") as `0x${string}`,

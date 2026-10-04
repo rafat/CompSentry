@@ -34,6 +34,11 @@ contracts:
 chains:
   - id: 10143 # Monad Testnet
     start_block: 67818500
+    rpc:
+      - url: "https://attentive-alien-sponge.monad-testnet.quiknode.pro/f6009b3159acf4b8735c025ad93df4bd2b04e21e/"
+        for: sync
+      - url: "https://attentive-alien-sponge.monad-testnet.quiknode.pro/f6009b3159acf4b8735c025ad93df4bd2b04e21e/"
+        for: realtime
     contracts:
       - name: ComputeSLAHub
         address:

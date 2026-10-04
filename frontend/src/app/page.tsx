@@ -1,19 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Marketplace } from "@/components/Marketplace";
 import { ActiveContractCockpit } from "@/components/ActiveContractCockpit";
 import { IncidentInspector } from "@/components/IncidentInspector";
 import { ScenarioControls } from "@/components/ScenarioControls";
 import { ShieldCheck, Cpu, Terminal, ArrowUpRight } from "lucide-react";
+import { fetchActiveContracts, SLAContractData } from "@/lib/api";
 
 export default function Home() {
   const [activeScenario, setActiveScenario] = useState<"normal" | "latency" | "outage" | "desync">("normal");
-  const [currentEpoch, setCurrentEpoch] = useState(7);
-  const [activeContractId, setActiveContractId] = useState<string | null>(
-    "0x1b2539f0a82b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d"
-  );
+  const [currentEpoch, setCurrentEpoch] = useState(1);
+  const [contracts, setContracts] = useState<SLAContractData[]>([]);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+
+  // Dynamically load active contracts from Envio HyperIndex
+  const loadContracts = async () => {
+    try {
+      const activeContracts = await fetchActiveContracts();
+      setContracts(activeContracts);
+      if (activeContracts.length > 0 && !selectedContractId) {
+        setSelectedContractId(activeContracts[0].id);
+      }
+    } catch (err) {
+      console.warn("Could not load contracts:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadContracts();
+    const interval = setInterval(loadContracts, 8_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeContract = contracts.find((c) => c.id === selectedContractId) || (contracts.length > 0 ? contracts[0] : null);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -28,6 +49,7 @@ export default function Home() {
 
         {/* Live Active Contract Micro-Settlement Cockpit */}
         <ActiveContractCockpit
+          contract={activeContract}
           scenario={activeScenario}
           currentEpoch={currentEpoch}
         />
@@ -39,11 +61,12 @@ export default function Home() {
 
         {/* Verified Compute Marketplace */}
         <Marketplace
-          onSelectOffer={(offerId) => {
-            setActiveContractId(offerId);
+          onSelectOffer={(newContractId) => {
+            setSelectedContractId(newContractId);
             setCurrentEpoch(1);
+            loadContracts();
           }}
-          activeContractId={activeContractId}
+          activeContractId={selectedContractId}
         />
       </main>
 
@@ -58,12 +81,10 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 text-gray-400">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-              Chainlink CRE Capability DON
+              <span>Sub-Second Micro-Epoch Settlements</span>
             </span>
             <span>•</span>
-            <span className="text-gray-400">Envio HyperIndex 3.12</span>
-            <span>•</span>
-            <span className="text-emerald-400">Deterministic Solvency Invariant Enforced</span>
+            <span className="text-gray-400">Envio HyperIndex Realtime</span>
           </div>
         </div>
       </footer>

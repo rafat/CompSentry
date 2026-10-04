@@ -86,7 +86,7 @@ const INDEXER_GRAPHQL_URL = process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL || "http
 const EVALUATOR_URL = process.env.NEXT_PUBLIC_EVALUATOR_URL || "http://localhost:4000";
 
 // Fetch System Metrics from Envio
-export async function fetchSystemMetrics(): Promise<SystemMetricsData> {
+export async function fetchSystemMetrics(): Promise<SystemMetricsData | null> {
   const query = `
     query GetSystemMetrics {
       SystemMetrics(id: "global_system_metrics") {
@@ -114,19 +114,145 @@ export async function fetchSystemMetrics(): Promise<SystemMetricsData> {
       return json.data.SystemMetrics;
     }
   } catch {
-    // Fallback demo state
+    // Indexer offline / not yet ready
   }
 
-  return {
-    totalValueLocked: "1200000000000000000000", // 1200 tokens
-    totalActiveEscrow: "1000000000000000000000",
-    totalActiveBond: "200000000000000000000",
-    totalSettledRebates: "25000000000000000000",
-    totalSlashedBonds: "5000000000000000000",
-    totalSettlementsCount: "42",
-    totalContractsCount: "6",
-    curBps: "1666", // 16.66%
-  };
+  return null;
+}
+
+// Fetch Active Offers from Envio
+export async function fetchActiveOffers(): Promise<SLAOfferData[]> {
+  const query = `
+    query GetActiveOffers {
+      SLAOffer(where: { active: { _eq: true } }, order_by: { id: asc }) {
+        id
+        provider {
+          id
+          priScore
+          totalContracts
+        }
+        token
+        resourceId
+        serviceFee
+        bondBps
+        availabilityThresholdBps
+        latencyThresholdMs
+        epochDuration
+        totalEpochs
+        epochPayoutCap
+        maxTotalPayout
+        active
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(INDEXER_GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (json.data?.SLAOffer) {
+      return json.data.SLAOffer;
+    }
+  } catch (err) {
+    console.warn("Could not fetch offers from indexer:", err);
+  }
+
+  return [];
+}
+
+// Fetch Active Contracts from Envio
+export async function fetchActiveContracts(): Promise<SLAContractData[]> {
+  const query = `
+    query GetActiveContracts {
+      SLAContract(where: { status: { _eq: "ACTIVE" } }, order_by: { startTimestamp: desc }) {
+        id
+        offer {
+          id
+          resourceId
+          availabilityThresholdBps
+          latencyThresholdMs
+        }
+        buyer { id }
+        provider { id, priScore }
+        serviceFee
+        providerBond
+        currentRemainingEscrow
+        currentRemainingBond
+        startTimestamp
+        endTimestamp
+        totalEpochs
+        epochDuration
+        availabilityThresholdBps
+        latencyThresholdMs
+        epochPayoutCap
+        maxTotalPayout
+        settledEpochsCount
+        cumulativeRebates
+        cumulativeSlashing
+        status
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(INDEXER_GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (json.data?.SLAContract) {
+      return json.data.SLAContract;
+    }
+  } catch (err) {
+    console.warn("Could not fetch active contracts from indexer:", err);
+  }
+
+  return [];
+}
+
+// Fetch Incidents from Envio
+export async function fetchContractIncidents(contractId?: string): Promise<IncidentData[]> {
+  const whereFilter = contractId ? `where: { contractId: { _eq: "${contractId}" } }, ` : "";
+  const query = `
+    query GetIncidents {
+      Incident(${whereFilter}order_by: { timestamp: desc }, limit: 10) {
+        id
+        contractId
+        epochId
+        p95LatencyMs
+        availabilityBps
+        rebateAmount
+        slashingAmount
+        breachType
+        evidenceHash
+        timestamp
+        txHash
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(INDEXER_GRAPHQL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (json.data?.Incident) {
+      return json.data.Incident;
+    }
+  } catch (err) {
+    console.warn("Could not fetch incidents from indexer:", err);
+  }
+
+  return [];
 }
 
 // Fault Injection API trigger
