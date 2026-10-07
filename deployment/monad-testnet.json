@@ -19,5 +19,8 @@
   "network": {
     "blockExplorer": "https://testnet.monadvision.com",
     "currencySymbol": "MON"
+  },
+  "indexer": {
+    "graphqlUrl": "https://indexer.dev.hyperindex.xyz/ac3fc11/v1/graphql"
   }
 }
