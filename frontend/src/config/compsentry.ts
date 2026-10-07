@@ -12,7 +12,9 @@ export const COMPSENTRY = {
     mockUSDC: (process.env.NEXT_PUBLIC_MOCK_USDC_ADDRESS || "0xF35e93EaeE4c6dCfA24eb0BD6aE1164c8a0ffB64") as `0x${string}`,
   },
   indexer: {
-    graphqlUrl: process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL || "http://localhost:8080/v1/graphql",
+    graphqlUrl: (process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL && process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL.includes("/v1/graphql"))
+      ? process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL
+      : "https://indexer.dev.hyperindex.xyz/ac3fc11/v1/graphql",
   },
   evaluator: {
     url: process.env.NEXT_PUBLIC_EVALUATOR_URL || "http://localhost:4000",
