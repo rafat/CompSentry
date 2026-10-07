@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COMPSENTRY } from "@/config/compsentry";
 
-const DEMO_ADMIN_KEY = process.env.DEMO_ADMIN_KEY || "compsentry-hackathon-2025";
+const DEMO_ADMIN_KEY = process.env.DEMO_ADMIN_KEY || "compsentry-hackathon";
 
 export async function GET() {
   try {
