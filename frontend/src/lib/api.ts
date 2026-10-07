@@ -89,7 +89,7 @@ const EVALUATOR_URL = process.env.NEXT_PUBLIC_EVALUATOR_URL || "http://localhost
 export async function fetchSystemMetrics(): Promise<SystemMetricsData | null> {
   const query = `
     query GetSystemMetrics {
-      SystemMetrics(id: "global_system_metrics") {
+      SystemMetrics(limit: 1) {
         totalValueLocked
         totalActiveEscrow
         totalActiveBond
@@ -110,8 +110,8 @@ export async function fetchSystemMetrics(): Promise<SystemMetricsData | null> {
       cache: "no-store",
     });
     const json = await res.json();
-    if (json.data?.SystemMetrics) {
-      return json.data.SystemMetrics;
+    if (json.data?.SystemMetrics && json.data.SystemMetrics.length > 0) {
+      return json.data.SystemMetrics[0];
     }
   } catch {
     // Indexer offline / not yet ready

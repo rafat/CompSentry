@@ -1,9 +1,25 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { computeConsensus, type ObserverTelemetry } from "./consensus.js";
 import { configSchema } from "./config.js";
-import rawConfig from "./config.json" with { type: "json" };
+import defaultRawConfig from "./config.json" with { type: "json" };
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function loadConfig() {
+  const configFile = process.env.CRE_CONFIG || (process.env.CRE_ENV === "online" ? "config.online.json" : "config.json");
+  const configPath = path.resolve(__dirname, configFile);
+  if (fs.existsSync(configPath)) {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  }
+  return defaultRawConfig;
+}
 
 async function runLocalSimulation() {
-  console.log("=== CompSentry CRE Workflow Local Simulation ===");
+  const rawConfig = loadConfig();
+  const configName = process.env.CRE_CONFIG || (process.env.CRE_ENV === "online" ? "config.online.json" : "config.json");
+  console.log(`=== CompSentry CRE Workflow Simulation (${configName}) ===`);
 
   const config = configSchema.parse(rawConfig);
 

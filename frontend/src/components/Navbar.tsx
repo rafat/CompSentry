@@ -20,9 +20,9 @@ export function Navbar() {
     return () => clearInterval(interval);
   }, []);
 
-  const formatEther = (weiStr: string) => {
+  const formatUSDC = (amountStr: string) => {
     try {
-      const val = Number(BigInt(weiStr) / 10000000000000000n) / 100;
+      const val = Number(BigInt(amountStr)) / 1e6;
       return val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } catch {
       return "0.00";
@@ -53,14 +53,14 @@ export function Navbar() {
           <div className="bg-cyber-card border border-cyber-border rounded-lg px-3 py-1.5 flex items-center gap-2">
             <span className="text-gray-400">TVL:</span>
             <span className="text-emerald-400 font-semibold">
-              ${metrics ? formatEther(metrics.totalValueLocked) : "1,200.00"} USDC
+              ${metrics ? formatUSDC(metrics.totalValueLocked) : "0.00"} USDC
             </span>
           </div>
 
           <div className="bg-cyber-card border border-cyber-border rounded-lg px-3 py-1.5 flex items-center gap-2">
             <span className="text-gray-400">CUR:</span>
             <span className="text-monad-500 font-semibold">
-              {metrics ? (Number(metrics.curBps) / 100).toFixed(2) : "16.66"}%
+              {metrics ? (Number(metrics.curBps) / 100).toFixed(2) : "0.00"}%
             </span>
           </div>
 

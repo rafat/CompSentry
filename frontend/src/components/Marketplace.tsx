@@ -20,12 +20,12 @@ const CATALOG_METADATA: Record<string, { modelName: string; hardware: string; pr
     hardware: "4x NVIDIA H100 80GB SXM5",
     providerName: "HyperCompute Cluster-01",
   },
-  "0x892a083f2dc57fbf6b4bf0f1c6fe90fae00508f6580f48ca090e94bb519e4fc4": {
+  "0x7880e802250473b091f3aca5841bdd51101aca127e924fd896fe08352c862207": {
     modelName: "DeepSeek R1 671B (FP8 MoE)",
     hardware: "8x NVIDIA H100 80GB SXM5",
     providerName: "Aetheria Decentralized Node",
   },
-  "0xb81c7ff683d73634351ea9e29f4585cb78848db90fb69e8533c373a0df4c0840": {
+  "0xd77aa6284458399bea91bb8bb1f7ebcca142d8d7315c0acdea4ed7d897774e7c": {
     modelName: "Mistral Large 2 (123B)",
     hardware: "4x NVIDIA A100 80GB PCIe",
     providerName: "NodeOps Genesis",

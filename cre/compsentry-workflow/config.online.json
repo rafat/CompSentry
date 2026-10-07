@@ -1,0 +1,15 @@
+{
+  "schedule": "*/30 * * * * *",
+  "contractId": "0x9795176caf70852d6d691f238a562c1cff9c48219f612ec37826b729903b9c21",
+  "minObserverQuorum": 2,
+  "observers": [
+    "https://compsentry-observer-1-961098530006.asia-south1.run.app/telemetry",
+    "https://compsentry-observer-2-961098530006.asia-south1.run.app/telemetry",
+    "https://compsentry-observer-3-961098530006.asia-south1.run.app/telemetry"
+  ],
+  "evm": {
+    "chainSelectorName": "monad-testnet",
+    "settlementControllerAddress": "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f",
+    "hubAddress": "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB"
+  }
+}
