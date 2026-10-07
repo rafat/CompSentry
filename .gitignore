@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!*.example
+!**/*.example
 
 # Foundry
 contracts/lib
