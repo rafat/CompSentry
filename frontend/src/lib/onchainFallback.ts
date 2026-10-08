@@ -109,38 +109,42 @@ export async function fetchSettlementsOnChain(contractId: string) {
 
     if (lastEpoch === 0n) return [];
 
-    // Query recent logs
-    const currentBlock = await publicClient.getBlockNumber();
-    const fromBlock = currentBlock > 5000n ? currentBlock - 5000n : 0n;
+    // Query recent logs if available within 90-block window
+    try {
+      const currentBlock = await publicClient.getBlockNumber();
+      const fromBlock = currentBlock > 90n ? currentBlock - 90n : 0n;
 
-    const logs = await publicClient.getLogs({
-      address: CONTROLLER_ADDRESS,
-      event: parseAbiItem(
-        "event EpochSettled(bytes32 indexed contractId, uint64 indexed epochId, uint64 p95LatencyMs, uint32 availabilityBps, uint64 deliveredUnits, uint256 rebateAmount, uint256 slashingAmount, bytes32 evidenceHash, uint64 timestamp, uint8 observerQuorum, bool breached)"
-      ),
-      args: { contractId: contractId as `0x${string}` },
-      fromBlock
-    });
-
-    if (logs.length > 0) {
-      return logs.map((log) => {
-        const a = log.args as any;
-        return {
-          id: `${contractId}-${a.epochId}`,
-          contract: { id: contractId },
-          epochId: a.epochId.toString(),
-          p95LatencyMs: a.p95LatencyMs.toString(),
-          availabilityBps: a.availabilityBps.toString(),
-          deliveredUnits: a.deliveredUnits.toString(),
-          rebateAmount: a.rebateAmount.toString(),
-          slashingAmount: a.slashingAmount.toString(),
-          evidenceHash: a.evidenceHash,
-          status: a.breached ? "BREACHED" : "COMPLIANT",
-          blockNumber: log.blockNumber?.toString() || "69365577",
-          blockTimestamp: a.timestamp.toString(),
-          txHash: log.transactionHash || ""
-        };
+      const logs = await publicClient.getLogs({
+        address: CONTROLLER_ADDRESS,
+        event: parseAbiItem(
+          "event EpochSettled(bytes32 indexed contractId, uint64 indexed epochId, uint64 p95LatencyMs, uint32 availabilityBps, uint64 deliveredUnits, uint256 rebateAmount, uint256 slashingAmount, bytes32 evidenceHash, uint64 timestamp, uint8 observerQuorum, bool breached)"
+        ),
+        args: { contractId: contractId as `0x${string}` },
+        fromBlock
       });
+
+      if (logs.length > 0) {
+        return logs.map((log) => {
+          const a = log.args as any;
+          return {
+            id: `${contractId}-${a.epochId}`,
+            contract: { id: contractId },
+            epochId: a.epochId.toString(),
+            p95LatencyMs: a.p95LatencyMs.toString(),
+            availabilityBps: a.availabilityBps.toString(),
+            deliveredUnits: a.deliveredUnits.toString(),
+            rebateAmount: a.rebateAmount.toString(),
+            slashingAmount: a.slashingAmount.toString(),
+            evidenceHash: a.evidenceHash,
+            status: a.breached ? "BREACHED" : "COMPLIANT",
+            blockNumber: log.blockNumber?.toString() || "69365577",
+            blockTimestamp: a.timestamp.toString(),
+            txHash: log.transactionHash || ""
+          };
+        });
+      }
+    } catch {
+      // getLogs failed or exceeded RPC window, proceed to contract state fallback
     }
 
     // Fallback if logs are outside block window
