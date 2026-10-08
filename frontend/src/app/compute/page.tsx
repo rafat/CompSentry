@@ -31,7 +31,7 @@ export default function ComputeMarketplacePage() {
     }
 
     loadOffers();
-    const interval = setInterval(loadOffers, 5000);
+    const interval = setInterval(loadOffers, 15000);
     return () => {
       mounted = false;
       clearInterval(interval);

@@ -70,7 +70,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-    const interval = setInterval(loadData, 4000);
+    const interval = setInterval(loadData, 10000);
     return () => {
       mounted = false;
       clearInterval(interval);

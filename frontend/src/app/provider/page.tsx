@@ -51,7 +51,7 @@ export default function ProviderDashboardPage() {
     }
 
     loadProviderData();
-    const interval = setInterval(loadProviderData, 4000);
+    const interval = setInterval(loadProviderData, 12000);
     return () => {
       mounted = false;
       clearInterval(interval);

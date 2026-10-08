@@ -38,7 +38,7 @@ export default function MySLAsPage() {
     }
 
     load();
-    const interval = setInterval(load, 4000);
+    const interval = setInterval(load, 10000);
     return () => {
       mounted = false;
       clearInterval(interval);

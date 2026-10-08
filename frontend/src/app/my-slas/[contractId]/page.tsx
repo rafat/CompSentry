@@ -51,7 +51,7 @@ export default function ContractDetailPage() {
     }
 
     if (contractId) loadContractData();
-    const interval = setInterval(loadContractData, 3500);
+    const interval = setInterval(loadContractData, 8000);
 
     return () => {
       mounted = false;
