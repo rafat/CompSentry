@@ -93,6 +93,63 @@ async function runLocalSimulation() {
     observerQuorum: consensus.quorumCount
   };
   console.log(JSON.stringify(slaReport, null, 2));
+
+  if (process.env.SUBMIT_ONCHAIN !== "false") {
+    try {
+      const { createWalletClient, createPublicClient, http } = await import("viem");
+      const { privateKeyToAccount } = await import("viem/accounts");
+      const SettlementControllerABI = (await import("./abi/SettlementController.json", { with: { type: "json" } })).default;
+
+      console.log("\n--- Submitting Settlement to Monad SettlementController ---");
+      const monadTestnet = {
+        id: 10143,
+        name: "Monad Testnet",
+        nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+        rpcUrls: {
+          default: { http: [process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz"] }
+        }
+      } as const;
+
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+      if (!privateKey) {
+        throw new Error("DEPLOYER_PRIVATE_KEY environment variable is required to submit on-chain settlements.");
+      }
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const publicClient = createPublicClient({
+        chain: monadTestnet,
+        transport: http(process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz")
+      });
+      const walletClient = createWalletClient({
+        account,
+        chain: monadTestnet,
+        transport: http(process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz")
+      });
+
+      const controllerAddress = (config.evm.settlementControllerAddress || "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f") as `0x${string}`;
+      const hash = await walletClient.writeContract({
+        address: controllerAddress,
+        abi: SettlementControllerABI,
+        functionName: "settleEpoch",
+        args: [{
+          contractId: config.contractId as `0x${string}`,
+          epochId: BigInt(slaReport.epochId),
+          p95LatencyMs: BigInt(slaReport.p95LatencyMs),
+          availabilityBps: slaReport.availabilityBps,
+          deliveredUnits: BigInt(slaReport.deliveredUnits),
+          evidenceHash: slaReport.evidenceHash as `0x${string}`,
+          timestamp: BigInt(slaReport.timestamp),
+          observerQuorum: slaReport.observerQuorum
+        }]
+      });
+      console.log(`Settlement Tx Submitted: ${hash}`);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log(`✅ Settled on Monad Testnet in block ${receipt.blockNumber}! Status: ${receipt.status}`);
+      console.log(`MonadVision Explorer: https://testnet.monadexplorer.com/tx/${hash}`);
+    } catch (err: any) {
+      console.warn(`[SettlementController] On-chain broadcast notice: ${err.shortMessage || err.message}`);
+    }
+  }
 }
 
 runLocalSimulation().catch(console.error);
+

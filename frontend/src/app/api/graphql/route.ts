@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COMPSENTRY } from "@/config/compsentry";
+import { fetchContractOnChain, fetchSettlementsOnChain } from "@/lib/onchainFallback";
 
 export const dynamic = "force-dynamic";
 
 // In-memory cache to deduplicate bursts and prevent hitting Envio's 429 rate limiter
 const cache = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 3000; // 3-second deduplication cache
+const CACHE_TTL_MS = 2000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,13 +30,12 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     });
 
-    // If rate-limited (429), serve stale cache if available, or wait and retry once
+    // If rate-limited (429), retry briefly
     if (res.status === 429) {
-      console.warn("[GraphQL Proxy] Envio 429 Rate Limit encountered. Serving cache or retrying...");
       if (cached) {
         return NextResponse.json(cached.data);
       }
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, 800));
       res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,18 +44,88 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!res.ok) {
-      if (cached) {
-        return NextResponse.json(cached.data);
+    let data = res.ok ? await res.json() : null;
+
+    // Fallback: If Envio is behind or missing live contract data, query Monad Testnet RPC directly
+    if (body.query) {
+      const q = body.query as string;
+
+      // 1. Single Contract Query (SLAContract_by_pk)
+      if (q.includes("SLAContract_by_pk")) {
+        const contractId = body.variables?.id;
+        if (contractId && (!data?.data?.SLAContract_by_pk)) {
+          const onchainContract = await fetchContractOnChain(contractId);
+          if (onchainContract) {
+            data = data || { data: {} };
+            data.data = data.data || {};
+            data.data.SLAContract_by_pk = onchainContract;
+          }
+        }
       }
-      const errorText = await res.text();
-      return NextResponse.json(
-        { errors: [{ message: `Envio HTTP ${res.status}: ${errorText}` }] },
-        { status: res.status }
-      );
+
+      // 2. Epoch Settlements Query (EpochSettlement)
+      if (q.includes("EpochSettlement")) {
+        const contractId =
+          body.variables?.contractId ||
+          body.variables?.id ||
+          body.variables?.where?.contract_id?._eq;
+        if (contractId && (!data?.data?.EpochSettlement || data.data.EpochSettlement.length === 0)) {
+          const onchainSettlements = await fetchSettlementsOnChain(contractId);
+          if (onchainSettlements.length > 0) {
+            data = data || { data: {} };
+            data.data = data.data || {};
+            data.data.EpochSettlement = onchainSettlements;
+          }
+        }
+      }
+
+      // 3. Incidents Query (Incident)
+      if (q.includes("Incident")) {
+        const contractId = body.variables?.contractId;
+        if (contractId && (!data?.data?.Incident || data.data.Incident.length === 0)) {
+          const onchainSettlements = await fetchSettlementsOnChain(contractId);
+          const incidents = onchainSettlements
+            .filter((s) => s.status === "BREACHED")
+            .map((s) => ({
+              id: s.id,
+              contract: s.contract,
+              epochId: s.epochId,
+              p95LatencyMs: s.p95LatencyMs,
+              availabilityBps: s.availabilityBps,
+              rebateAmount: s.rebateAmount,
+              slashingAmount: s.slashingAmount,
+              breachType: "LATENCY_BREACH",
+              evidenceHash: s.evidenceHash,
+              timestamp: s.blockTimestamp,
+              txHash: s.txHash
+            }));
+          if (incidents.length > 0) {
+            data = data || { data: {} };
+            data.data = data.data || {};
+            data.data.Incident = incidents;
+          }
+        }
+      }
+
+      // 4. Active Contracts List (SLAContract)
+      if (q.includes("GetActiveContracts") || (q.includes("SLAContract") && !q.includes("SLAContract_by_pk"))) {
+        const liveContract = await fetchContractOnChain("0x92aeeacbaf121ffe33d39aace49f331ac7419bda158c2553b5cd93024e515a81");
+        if (liveContract) {
+          data = data || { data: {} };
+          data.data = data.data || {};
+          const existingList = (data.data.SLAContract || []).filter(
+            (c: any) => c.id.toLowerCase() !== liveContract.id.toLowerCase()
+          );
+          data.data.SLAContract = [liveContract, ...existingList];
+        }
+      }
     }
 
-    const data = await res.json();
+    if (!data) {
+      if (cached) return NextResponse.json(cached.data);
+      return NextResponse.json({ errors: [{ message: "Data unavailable" }] }, { status: 502 });
+    }
+
     cache.set(cacheKey, { timestamp: now, data });
     return NextResponse.json(data);
   } catch (err: any) {
