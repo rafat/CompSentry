@@ -6,6 +6,7 @@
   "main": "workflow.ts",
   "scripts": {
     "run-epoch": "bun index.ts",
+    "run-daemon": "bun index.ts --daemon",
     "run-live": "bun test-live-settle.ts",
     "test": "bun test.ts"
   },
