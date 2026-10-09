@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import readline from "readline";
 import { fileURLToPath } from "url";
 import { computeConsensus, type ObserverTelemetry } from "./consensus.js";
 import { configSchema } from "./config.js";
@@ -29,6 +30,31 @@ const monadTestnet = {
   }
 } as const;
 
+let dynamicOutageScheduled = false;
+
+function setupKeypressListener() {
+  if (process.stdin.isTTY) {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false
+    });
+
+    rl.on("line", (line) => {
+      const trimmed = line.trim().toLowerCase();
+      if (trimmed === "o" || trimmed === "outage") {
+        dynamicOutageScheduled = !dynamicOutageScheduled;
+        if (dynamicOutageScheduled) {
+          console.log(`\n🚨 >>> [INTERACTIVE TOGGLE] OUTAGE SCHEDULED FOR NEXT EPOCH! <<<`);
+          console.log(`   High latency (1500ms+) and low availability (~40%) will trigger bond slashing on Monad.\n`);
+        } else {
+          console.log(`\n✅ >>> [INTERACTIVE TOGGLE] Outage cancelled. Next epoch will be normal. <<<\n`);
+        }
+      }
+    });
+  }
+}
+
 async function settleSingleEpoch({
   activeContractId,
   config,
@@ -45,8 +71,7 @@ async function settleSingleEpoch({
   forceOutage: boolean;
   controllerAddress: `0x${string}`;
   hubAddress: `0x${string}`;
-}): Promise<{ success: boolean; nextEpoch?: number; totalEpochs?: number }> {
-  // 1. Fetch on-chain contract state and last settled epoch
+}): Promise<{ success: boolean; nextEpoch?: number; totalEpochs?: number; isFinalized?: boolean }> {
   let sla: any;
   try {
     sla = await publicClient.readContract({
@@ -77,20 +102,24 @@ async function settleSingleEpoch({
   const totalEpochs = Number(sla.totalEpochs);
   const targetEpoch = lastSettled + 1;
 
-  if (targetEpoch > totalEpochs) {
+  if (targetEpoch > totalEpochs || sla.status === 2) {
     console.log(`\n🎉 [Completed] All ${totalEpochs}/${totalEpochs} epochs settled for contract ${activeContractId}!`);
-    return { success: true, nextEpoch: targetEpoch, totalEpochs };
+    console.log(`   Contract is fully FINALIZED on Monad Testnet.`);
+    return { success: true, nextEpoch: targetEpoch, totalEpochs, isFinalized: true };
   }
 
   if (sla.status !== 1) {
     const statusNames = ["NONE", "ACTIVE", "FINALIZED", "REVIEW_REQUIRED"];
     console.warn(`⚠️ [Status] Contract is in state ${statusNames[sla.status] || sla.status}. Cannot settle epochs.`);
-    return { success: false };
+    return { success: false, isFinalized: true };
   }
 
-  // 2. Derive strict deterministic epoch windows from startTimestamp & epochDuration
+  // Derive strict deterministic epoch windows from startTimestamp & epochDuration
   const startTimestamp = Number(sla.startTimestamp);
   const epochDuration = Number(sla.epochDuration);
+  const totalRentalDurationSec = totalEpochs * epochDuration;
+  const rentalEndTimestamp = startTimestamp + totalRentalDurationSec;
+
   const expectedStart = startTimestamp + (targetEpoch - 1) * epochDuration;
   const expectedEnd = expectedStart + epochDuration;
 
@@ -98,8 +127,10 @@ async function settleSingleEpoch({
   console.log(`=== CompSentry CRE Settlement: Epoch ${targetEpoch}/${totalEpochs} ===`);
   console.log(`======================================================`);
   console.log(`Contract:         ${activeContractId}`);
+  console.log(`Rental Window:    ${new Date(startTimestamp * 1000).toLocaleTimeString()} -> ${new Date(rentalEndTimestamp * 1000).toLocaleTimeString()} (${Math.round(totalRentalDurationSec / 60)} min total rental)`);
   console.log(`Epoch Window:     ${expectedStart} -> ${expectedEnd} (${epochDuration}s duration)`);
-  console.log(`Window (Local):   ${new Date(expectedStart * 1000).toLocaleTimeString()} -> ${new Date(expectedEnd * 1000).toLocaleTimeString()}`);
+  console.log(`Epoch (Local):    ${new Date(expectedStart * 1000).toLocaleTimeString()} -> ${new Date(expectedEnd * 1000).toLocaleTimeString()}`);
+  console.log(`Hotkeys:          Press [o] + Enter to toggle SLA Outage for next epoch`);
 
   const now = Math.floor(Date.now() / 1000);
 
@@ -113,11 +144,11 @@ async function settleSingleEpoch({
     console.warn(`   Epoch ${targetEpoch} ended at ${new Date(expectedEnd * 1000).toLocaleTimeString()} (${now - expectedEnd}s ago).`);
     console.warn(`   The on-chain SettlementController enforces strict real-time telemetry windows (max 120s delay).`);
     console.warn(`   Because Epoch ${targetEpoch} was not settled during its active window, it can no longer be accepted by Monad.`);
-    console.warn(`   👉 To demo live settlement: Activate a fresh rental on the dashboard and run CRE immediately.\n`);
-    return { success: false };
+    console.warn(`   👉 To demo live settlement across the rental: Start CRE when activating your rental in the UI.\n`);
+    return { success: false, isFinalized: now > rentalEndTimestamp };
   }
 
-  // 3. Poll Observers for the exact epoch window
+  // Poll Observers for the exact epoch window
   console.log(`📡 Polling ${config.observers.length} Independent Observers...`);
   const rawObservations: ObserverTelemetry[] = [];
 
@@ -141,7 +172,7 @@ async function settleSingleEpoch({
     }
   }
 
-  // 4. Inject Outage if requested (for demoing SLA breach & bond slashing)
+  // Inject Outage if requested (for demoing SLA breach & bond slashing)
   if (forceOutage) {
     console.log(`\n🚨 [SIMULATION ALERT] INJECTING GPU CLUSTER OUTAGE & SLA BREACH (--outage)...`);
     rawObservations.length = 0;
@@ -198,7 +229,7 @@ async function settleSingleEpoch({
     return { success: false };
   }
 
-  // 5. Compute CRE Consensus
+  // Compute CRE Consensus
   const consensus = computeConsensus(
     rawObservations,
     {
@@ -220,7 +251,6 @@ async function settleSingleEpoch({
     console.log(`Neutralized Outliers: ${consensus.outliers.join(", ")}`);
   }
 
-  // Timestamp must be within [expectedStart, expectedEnd + 30] and <= block.timestamp + 30
   const submissionTimestamp = BigInt(expectedEnd);
 
   const slaReport = {
@@ -234,7 +264,7 @@ async function settleSingleEpoch({
     observerQuorum: consensus.quorumCount
   };
 
-  // 6. Submit on-chain settlement
+  // Submit on-chain settlement
   if (process.env.SUBMIT_ONCHAIN !== "false") {
     console.log(`\n--- Submitting Settlement to Monad SettlementController ---`);
     console.log(`Calling settleEpoch for Epoch ${targetEpoch} (timestamp: ${submissionTimestamp})...`);
@@ -267,6 +297,8 @@ async function main() {
   const configName = process.env.CRE_CONFIG || (process.env.CRE_ENV === "online" ? "config.online.json" : "config.json");
   console.log(`=== CompSentry CRE Workflow Runner (${configName}) ===`);
 
+  setupKeypressListener();
+
   const config = configSchema.parse(rawConfig);
 
   const cliContractArg = process.argv.find((arg, i, arr) => (arg === "--contract" || arg === "-c") && arr[i + 1])
@@ -274,7 +306,8 @@ async function main() {
     : undefined;
   const activeContractId = (process.env.CRE_CONTRACT || cliContractArg || config.contractId) as `0x${string}`;
 
-  const isDaemon = process.argv.includes("--daemon") || process.env.CRE_DAEMON === "true";
+  // Default to running for the entire duration of the rental unless --once is explicitly specified
+  const runOnce = process.argv.includes("--once") || process.env.CRE_ONCE === "true";
   const cliOutageArg = process.env.CRE_OUTAGE === "true" || process.argv.includes("--outage");
   const outageEpochArg = process.argv.find((arg, i, arr) => (arg === "--outage-epoch") && arr[i + 1])
     ? Number(process.argv[process.argv.findIndex((a) => a === "--outage-epoch") + 1])
@@ -304,55 +337,53 @@ async function main() {
       })
     : null;
 
-  if (isDaemon) {
-    console.log(`\n🚀 [Daemon Mode Active] CRE will run continuously at fixed intervals until contract is finalized.`);
-    if (outageEpochArg) {
-      console.log(`   (Outage scheduled automatically for Epoch ${outageEpochArg})`);
+  console.log(`Contract:         ${activeContractId}`);
+  console.log(`Execution Mode:   ${runOnce ? "Single Epoch (--once)" : "Continuous (Runs for full rental duration)"}`);
+  if (outageEpochArg) {
+    console.log(`Scheduled Outage: Auto-inject on Epoch ${outageEpochArg}`);
+  }
+
+  let running = true;
+  while (running) {
+    const lastSettled = Number(
+      await publicClient.readContract({
+        address: controllerAddress,
+        abi: SettlementControllerABI,
+        functionName: "lastSettledEpoch",
+        args: [activeContractId]
+      })
+    );
+    const currentTarget = lastSettled + 1;
+    const shouldOutage = cliOutageArg || dynamicOutageScheduled || (outageEpochArg !== undefined && currentTarget === outageEpochArg);
+
+    if (dynamicOutageScheduled) {
+      // Consume the interactive toggle
+      dynamicOutageScheduled = false;
     }
 
-    let running = true;
-    while (running) {
-      // Determine if outage should be injected for this epoch
-      const lastSettled = Number(
-        await publicClient.readContract({
-          address: controllerAddress,
-          abi: SettlementControllerABI,
-          functionName: "lastSettledEpoch",
-          args: [activeContractId]
-        })
-      );
-      const currentTarget = lastSettled + 1;
-      const shouldOutage = cliOutageArg || (outageEpochArg !== undefined && currentTarget === outageEpochArg);
-
-      const res = await settleSingleEpoch({
-        activeContractId,
-        config,
-        publicClient,
-        walletClient,
-        forceOutage: shouldOutage,
-        controllerAddress,
-        hubAddress
-      });
-
-      if (!res.success) {
-        console.log(`\n⏸️  Daemon paused. Retrying in 15 seconds...`);
-        await new Promise((r) => setTimeout(r, 15000));
-      } else if (res.nextEpoch && res.totalEpochs && res.nextEpoch > res.totalEpochs) {
-        console.log(`\n🏁 Contract fully finalized! Exiting daemon.`);
-        running = false;
-      }
-    }
-  } else {
-    // Single-epoch run
-    await settleSingleEpoch({
+    const res = await settleSingleEpoch({
       activeContractId,
       config,
       publicClient,
       walletClient,
-      forceOutage: cliOutageArg,
+      forceOutage: shouldOutage,
       controllerAddress,
       hubAddress
     });
+
+    if (runOnce) {
+      break;
+    }
+
+    if (res.isFinalized || (res.nextEpoch && res.totalEpochs && res.nextEpoch > res.totalEpochs)) {
+      console.log(`\n🏁 Rental completed and fully finalized! Exiting.`);
+      break;
+    }
+
+    if (!res.success) {
+      console.log(`\n⏸️  Retrying check in 15 seconds...`);
+      await new Promise((r) => setTimeout(r, 15000));
+    }
   }
 }
 
