@@ -58,6 +58,58 @@ async function runLocalSimulation() {
     }
   }
 
+  const isOutage = process.env.CRE_OUTAGE === "true" || process.argv.includes("--outage");
+  if (isOutage) {
+    console.log(`\n🚨 [SIMULATION ALERT] INJECTING GPU CLUSTER OUTAGE & SLA BREACH (--outage active)...`);
+    rawObservations.length = 0;
+    rawObservations.push(
+      {
+        contractId: activeContractId,
+        epochId: 1,
+        observerId: "observer-1",
+        p95LatencyMs: 1420,
+        availabilityBps: 3850,
+        sampleCount: 15,
+        successfulRequests: 6,
+        failedRequests: 9,
+        windowStart,
+        windowEnd,
+        timestamp: windowEnd
+      },
+      {
+        contractId: activeContractId,
+        epochId: 1,
+        observerId: "observer-2",
+        p95LatencyMs: 1680,
+        availabilityBps: 4200,
+        sampleCount: 15,
+        successfulRequests: 6,
+        failedRequests: 9,
+        windowStart,
+        windowEnd,
+        timestamp: windowEnd
+      },
+      {
+        contractId: activeContractId,
+        epochId: 1,
+        observerId: "observer-3",
+        p95LatencyMs: 1510,
+        availabilityBps: 4000,
+        sampleCount: 15,
+        successfulRequests: 6,
+        failedRequests: 9,
+        windowStart,
+        windowEnd,
+        timestamp: windowEnd
+      }
+    );
+    for (const obs of rawObservations) {
+      console.log(
+        `[Observer ${obs.observerId}] Latency: ${obs.p95LatencyMs}ms [BREACH ⚠️], Avail: ${obs.availabilityBps / 100}% [MAJOR OUTAGE 💥], Samples: ${obs.sampleCount}`
+      );
+    }
+  }
+
   if (rawObservations.length < config.minObserverQuorum) {
     console.error(
       `[CRE Consensus] FAILED: Quorum not met (${rawObservations.length}/${config.minObserverQuorum})`
@@ -133,6 +185,7 @@ async function runLocalSimulation() {
       const controllerAddress = (config.evm.settlementControllerAddress || "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f") as `0x${string}`;
 
       let targetEpoch = 1n;
+      let targetTimestamp = BigInt(slaReport.timestamp);
       try {
         const lastEpoch = (await publicClient.readContract({
           address: controllerAddress,
@@ -141,10 +194,36 @@ async function runLocalSimulation() {
           args: [activeContractId]
         })) as bigint;
         targetEpoch = lastEpoch + 1n;
+
+        const ComputeSLAHubABI = (await import("./abi/ComputeSLAHub.json", { with: { type: "json" } })).default;
+        const sla = (await publicClient.readContract({
+          address: (config.evm.hubAddress || "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB") as `0x${string}`,
+          abi: ComputeSLAHubABI,
+          functionName: "getContract",
+          args: [activeContractId]
+        })) as any;
+
+        if (sla && sla.startTimestamp) {
+          const expectedStart = BigInt(sla.startTimestamp) + (targetEpoch - 1n) * BigInt(sla.epochDuration);
+          const expectedEnd = expectedStart + BigInt(sla.epochDuration);
+          const currentNow = BigInt(Math.floor(Date.now() / 1000));
+
+          if (currentNow < expectedStart) {
+            const waitSec = Number(expectedStart - currentNow);
+            console.log(`[Epoch Window Sync] Waiting ${waitSec}s for Epoch ${targetEpoch} window to start on-chain...`);
+            await new Promise((r) => setTimeout(r, waitSec * 1000 + 1000));
+          }
+
+          const freshNow = BigInt(Math.floor(Date.now() / 1000));
+          targetTimestamp = freshNow > expectedEnd ? expectedEnd : freshNow;
+          if (targetTimestamp < expectedStart) {
+            targetTimestamp = expectedStart;
+          }
+        }
       } catch (e) {
         targetEpoch = 1n;
       }
-      console.log(`Settling for Contract ${activeContractId} -> Target Epoch: ${targetEpoch}`);
+      console.log(`Settling for Contract ${activeContractId} -> Target Epoch: ${targetEpoch} (timestamp: ${targetTimestamp})`);
 
       const hash = await walletClient.writeContract({
         address: controllerAddress,
@@ -157,7 +236,7 @@ async function runLocalSimulation() {
           availabilityBps: slaReport.availabilityBps,
           deliveredUnits: BigInt(slaReport.deliveredUnits),
           evidenceHash: slaReport.evidenceHash as `0x${string}`,
-          timestamp: BigInt(slaReport.timestamp),
+          timestamp: targetTimestamp,
           observerQuorum: slaReport.observerQuorum
         }]
       });

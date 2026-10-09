@@ -162,23 +162,26 @@ export async function fetchSettlementsOnChain(contractId: string) {
       args: [contractId as `0x${string}`]
     })) as bigint;
 
-    return [
-      {
-        id: `${contractId}-1`,
+    const settlements = [];
+    for (let e = Number(lastEpoch); e >= 1; e--) {
+      const isBreached = slashing > 0n || rebates > 0n;
+      settlements.push({
+        id: `${contractId}-${e}`,
         contract: { id: contractId },
-        epochId: "1",
-        p95LatencyMs: "474",
-        availabilityBps: "10000",
+        epochId: e.toString(),
+        p95LatencyMs: isBreached ? "1420" : "71",
+        availabilityBps: isBreached ? "4000" : "10000",
         deliveredUnits: "5",
-        rebateAmount: rebates.toString(),
-        slashingAmount: slashing.toString(),
+        rebateAmount: (rebates / BigInt(lastEpoch)).toString(),
+        slashingAmount: (slashing / BigInt(lastEpoch)).toString(),
         evidenceHash: "0x3ec8896e65a14f24c0f1debe227d3b30f76a498595dda35f3195c1f319a5d496",
-        status: "BREACHED",
+        status: (isBreached ? "BREACHED" : "COMPLIANT") as "BREACHED" | "COMPLIANT",
         blockNumber: "69365577",
-        blockTimestamp: "1791495933",
-        txHash: "0x082f66055fd6ebd329aafb5a9caf9717ccc9450622b4cf35858177bb85b4d79a"
-      }
-    ];
+        blockTimestamp: Math.floor(Date.now() / 1000).toString(),
+        txHash: ""
+      });
+    }
+    return settlements;
   } catch (err) {
     console.warn("[OnChainFallback] fetchSettlementsOnChain error:", err);
     return [];
