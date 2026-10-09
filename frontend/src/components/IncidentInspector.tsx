@@ -158,7 +158,7 @@ export function IncidentInspector({ scenario, contractId }: IncidentInspectorPro
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase block">Monad Testnet Transaction</span>
                     <a
-                      href={`https://testnet.monadvision.com/tx/${incidents[selectedIncident].txHash}`}
+                      href={`https://testnet.monadscan.com/tx/${incidents[selectedIncident].txHash}`}
                       target="_blank"
                       rel="noreferrer"
                       className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 mt-0.5"

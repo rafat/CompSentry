@@ -17,6 +17,7 @@ import {
 import { COMPSENTRY } from "@/config/compsentry";
 import { ComputeSLAHubABI, ERC20_ABI } from "@/lib/contracts";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseEventLogs, parseUnits } from "viem";
 import {
   Shield,
   ShieldCheck,
@@ -30,6 +31,7 @@ import {
   CheckCircle2,
   Lock,
   ArrowLeft,
+  Coins,
 } from "lucide-react";
 
 export default function SLAOfferDetailPage() {
@@ -39,10 +41,11 @@ export default function SLAOfferDetailPage() {
 
   const [offer, setOffer] = useState<SLAOffer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activatedContractId, setActivatedContractId] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
 
-  // Load offer from Envio
+  // Load offer from Envio or LocalStorage
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -69,6 +72,10 @@ export default function SLAOfferDetailPage() {
     args: address && COMPSENTRY.contracts.vault ? [address, COMPSENTRY.contracts.vault] : undefined,
   });
 
+  // Faucet Write
+  const { data: faucetTxHash, isPending: isMinting, writeContract: writeFaucet } = useWriteContract();
+  const { isSuccess: isMintConfirmed } = useWaitForTransactionReceipt({ hash: faucetTxHash });
+
   // Wagmi Contract Writes
   const { data: approveTxHash, isPending: isApproving, writeContract: writeApprove } = useWriteContract();
   const { isSuccess: isApproveConfirmed, isLoading: isWaitingApprove } = useWaitForTransactionReceipt({
@@ -76,7 +83,7 @@ export default function SLAOfferDetailPage() {
   });
 
   const { data: activateTxHash, isPending: isActivating, writeContract: writeActivate } = useWriteContract();
-  const { isSuccess: isActivateConfirmed, isLoading: isWaitingActivate } = useWaitForTransactionReceipt({
+  const { isSuccess: isActivateConfirmed, isLoading: isWaitingActivate, data: activateReceipt } = useWaitForTransactionReceipt({
     hash: activateTxHash,
   });
 
@@ -85,6 +92,67 @@ export default function SLAOfferDetailPage() {
       refetchAllowance();
     }
   }, [isApproveConfirmed, refetchAllowance]);
+
+  // Decode contractId from receipt
+  useEffect(() => {
+    if (isActivateConfirmed && activateReceipt) {
+      try {
+        const logs = parseEventLogs({
+          abi: ComputeSLAHubABI,
+          eventName: "SLAContractActivated",
+          logs: activateReceipt.logs,
+        });
+        const cId = (logs[0] as any)?.args?.contractId;
+        if (cId) {
+          setActivatedContractId(cId);
+
+          if (offer) {
+            const serviceFeeBN = BigInt(offer.serviceFee || "0");
+            const bondBpsBN = BigInt(offer.bondBps || "1500");
+            const providerBondBN = (serviceFeeBN * bondBpsBN) / 10000n;
+
+            const newContract: any = {
+              id: cId,
+              offer: {
+                id: offer.id,
+                resourceId: offer.resourceId,
+                availabilityThresholdBps: Number(offer.availabilityThresholdBps),
+                latencyThresholdMs: Number(offer.latencyThresholdMs),
+                epochDuration: Number(offer.epochDuration),
+                totalEpochs: Number(offer.totalEpochs),
+              },
+              buyer: { id: address || "" },
+              provider: offer.provider,
+              serviceFee: offer.serviceFee,
+              providerBond: providerBondBN.toString(),
+              currentRemainingEscrow: offer.serviceFee,
+              currentRemainingBond: providerBondBN.toString(),
+              startTimestamp: Math.floor(Date.now() / 1000).toString(),
+              endTimestamp: (Math.floor(Date.now() / 1000) + Number(offer.epochDuration) * Number(offer.totalEpochs)).toString(),
+              totalEpochs: offer.totalEpochs.toString(),
+              epochDuration: offer.epochDuration.toString(),
+              availabilityThresholdBps: offer.availabilityThresholdBps.toString(),
+              latencyThresholdMs: offer.latencyThresholdMs.toString(),
+              epochPayoutCap: offer.epochPayoutCap.toString(),
+              maxTotalPayout: offer.maxTotalPayout.toString(),
+              settledEpochsCount: "0",
+              cumulativeRebates: "0",
+              cumulativeSlashing: "0",
+              status: "ACTIVE",
+              createdAtBlock: activateReceipt.blockNumber.toString(),
+              createdAtTimestamp: Math.floor(Date.now() / 1000).toString(),
+            };
+
+            const stored = localStorage.getItem("compsentry_custom_contracts");
+            const customContracts = stored ? JSON.parse(stored) : [];
+            localStorage.setItem("compsentry_custom_contracts", JSON.stringify([newContract, ...customContracts]));
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to decode contractId:", err);
+      }
+    }
+  }, [isActivateConfirmed, activateReceipt, offer, address]);
 
   if (loading) {
     return (
@@ -129,6 +197,16 @@ export default function SLAOfferDetailPage() {
       abi: ERC20_ABI,
       functionName: "approve",
       args: [COMPSENTRY.contracts.vault, serviceFeeBN * 10n],
+    });
+  };
+
+  const handleMintUSDC = () => {
+    if (!address) return;
+    writeFaucet({
+      address: COMPSENTRY.contracts.mockUSDC,
+      abi: ERC20_ABI,
+      functionName: "mint",
+      args: [address, parseUnits("500", 6)],
     });
   };
 
@@ -343,28 +421,51 @@ export default function SLAOfferDetailPage() {
                     <span>SLA Activated!</span>
                   </span>
                   <Link
-                    href="/my-slas"
-                    className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition"
+                    href={activatedContractId ? `/my-slas/${activatedContractId}` : "/my-slas"}
+                    className="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
                   >
-                    View in My SLAs
+                    <span>Enter Live Cockpit</span>
+                    <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
               ) : needsApproval ? (
-                <button
-                  onClick={handleApprove}
-                  disabled={isApproving || isWaitingApprove}
-                  className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-900 text-white font-semibold transition shadow-lg shadow-cyan-500/20"
-                >
-                  {isApproving || isWaitingApprove ? "Approving USDC..." : "1. Approve USDC Escrow"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleMintUSDC}
+                    disabled={isMinting}
+                    className="px-3 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold transition flex items-center gap-1.5 border border-cyber-border"
+                    title="Get 500 Testnet USDC"
+                  >
+                    <Coins className="h-3.5 w-3.5 text-amber-400" />
+                    <span>{isMinting ? "Minting..." : "Get Test USDC"}</span>
+                  </button>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isApproving || isWaitingApprove}
+                    className="px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-900 text-white font-semibold transition shadow-lg shadow-cyan-500/20"
+                  >
+                    {isApproving || isWaitingApprove ? "Approving USDC..." : "1. Approve USDC Escrow"}
+                  </button>
+                </div>
               ) : (
-                <button
-                  onClick={handleActivate}
-                  disabled={isActivating || isWaitingActivate}
-                  className="px-6 py-2.5 rounded-lg bg-monad-600 hover:bg-monad-500 disabled:bg-monad-900 text-white font-semibold transition shadow-lg shadow-monad-500/20"
-                >
-                  {isActivating || isWaitingActivate ? "Activating Contract..." : "2. Lock Escrow & Activate SLA"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleMintUSDC}
+                    disabled={isMinting}
+                    className="px-3 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold transition flex items-center gap-1.5 border border-cyber-border"
+                    title="Get 500 Testnet USDC"
+                  >
+                    <Coins className="h-3.5 w-3.5 text-amber-400" />
+                    <span>{isMinting ? "Minting..." : "Get Test USDC"}</span>
+                  </button>
+                  <button
+                    onClick={handleActivate}
+                    disabled={isActivating || isWaitingActivate}
+                    className="px-6 py-2.5 rounded-lg bg-monad-600 hover:bg-monad-500 disabled:bg-monad-900 text-white font-semibold transition shadow-lg shadow-monad-500/20"
+                  >
+                    {isActivating || isWaitingActivate ? "Activating Contract..." : "2. Lock Escrow & Activate SLA"}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -379,7 +480,7 @@ export default function SLAOfferDetailPage() {
                 rel="noreferrer"
                 className="text-monad-400 hover:underline flex items-center gap-1"
               >
-                <span>View on MonadVision</span>
+                <span>View on MonadScan</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>

@@ -270,17 +270,51 @@ export async function fetchSystemMetrics(): Promise<SystemMetrics | null> {
 
 export async function fetchSLAOffers(): Promise<SLAOffer[]> {
   const data = await fetchGraphQL<{ SLAOffer: SLAOffer[] }>(GET_ACTIVE_OFFERS);
-  return data?.SLAOffer || [];
+  const networkOffers = data?.SLAOffer || [];
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("compsentry_custom_offers");
+      if (stored) {
+        const custom: SLAOffer[] = JSON.parse(stored);
+        const existingIds = new Set(networkOffers.map((o) => o.id.toLowerCase()));
+        const uniqueCustom = custom.filter((o) => !existingIds.has(o.id.toLowerCase()));
+        return [...uniqueCustom, ...networkOffers];
+      }
+    } catch {}
+  }
+  return networkOffers;
 }
 
 export async function fetchSLAOfferById(id: string): Promise<SLAOffer | null> {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("compsentry_custom_offers");
+      if (stored) {
+        const custom: SLAOffer[] = JSON.parse(stored);
+        const match = custom.find((o) => o.id.toLowerCase() === id.toLowerCase());
+        if (match) return match;
+      }
+    } catch {}
+  }
   const data = await fetchGraphQL<{ SLAOffer_by_pk: SLAOffer }>(GET_OFFER_BY_ID, { id });
   return data?.SLAOffer_by_pk || null;
 }
 
 export async function fetchActiveContracts(): Promise<SLAContract[]> {
   const data = await fetchGraphQL<{ SLAContract: SLAContract[] }>(GET_ACTIVE_CONTRACTS);
-  return data?.SLAContract || [];
+  const networkContracts = data?.SLAContract || [];
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("compsentry_custom_contracts");
+      if (stored) {
+        const custom: SLAContract[] = JSON.parse(stored);
+        const existingIds = new Set(networkContracts.map((c) => c.id.toLowerCase()));
+        const uniqueCustom = custom.filter((c) => !existingIds.has(c.id.toLowerCase()));
+        return [...uniqueCustom, ...networkContracts];
+      }
+    } catch {}
+  }
+  return networkContracts;
 }
 
 export async function fetchSLAContractById(id: string): Promise<SLAContract | null> {

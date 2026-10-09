@@ -132,7 +132,7 @@ export function ActiveContractCockpit({ contract, scenario, currentEpoch }: Acti
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-gray-400">CONTRACT:</span>
             <a
-              href={`https://testnet.monadvision.com/address/${CONTRACT_ADDRESSES.hub}`}
+              href={`https://testnet.monadscan.com/address/${CONTRACT_ADDRESSES.hub}`}
               target="_blank"
               rel="noreferrer"
               className="font-mono text-xs text-cyan-400 hover:text-cyan-300 bg-cyber-bg px-2 py-0.5 rounded border border-cyber-border flex items-center gap-1 transition"

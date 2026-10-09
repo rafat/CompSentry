@@ -23,11 +23,16 @@ async function runLocalSimulation() {
 
   const config = configSchema.parse(rawConfig);
 
+  const cliContractArg = process.argv.find((arg, i, arr) => (arg === "--contract" || arg === "-c") && arr[i + 1])
+    ? process.argv[process.argv.findIndex((a) => a === "--contract" || a === "-c") + 1]
+    : undefined;
+  const activeContractId = (process.env.CRE_CONTRACT || cliContractArg || config.contractId) as `0x${string}`;
+
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - 30;
   const windowEnd = now;
 
-  console.log(`Contract: ${config.contractId}`);
+  console.log(`Contract: ${activeContractId}`);
   console.log(`Epoch Window: ${windowStart} -> ${windowEnd} (30s duration)`);
   console.log(`Polling Observers: ${config.observers.join(", ")}`);
 
@@ -63,7 +68,7 @@ async function runLocalSimulation() {
   const consensus = computeConsensus(
     rawObservations,
     {
-      contractId: config.contractId,
+      contractId: activeContractId,
       epochId: 1,
       windowStart,
       windowEnd
@@ -83,7 +88,7 @@ async function runLocalSimulation() {
 
   console.log("\n--- Objective SLAReport Generated for Monad SettlementController ---");
   const slaReport = {
-    contractId: config.contractId,
+    contractId: activeContractId,
     epochId: 1,
     p95LatencyMs: consensus.medianLatencyMs,
     availabilityBps: consensus.consensusAvailabilityBps,
@@ -126,13 +131,28 @@ async function runLocalSimulation() {
       });
 
       const controllerAddress = (config.evm.settlementControllerAddress || "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f") as `0x${string}`;
+
+      let targetEpoch = 1n;
+      try {
+        const lastEpoch = (await publicClient.readContract({
+          address: controllerAddress,
+          abi: SettlementControllerABI,
+          functionName: "lastSettledEpoch",
+          args: [activeContractId]
+        })) as bigint;
+        targetEpoch = lastEpoch + 1n;
+      } catch (e) {
+        targetEpoch = 1n;
+      }
+      console.log(`Settling for Contract ${activeContractId} -> Target Epoch: ${targetEpoch}`);
+
       const hash = await walletClient.writeContract({
         address: controllerAddress,
         abi: SettlementControllerABI,
         functionName: "settleEpoch",
         args: [{
-          contractId: config.contractId as `0x${string}`,
-          epochId: BigInt(slaReport.epochId),
+          contractId: activeContractId,
+          epochId: targetEpoch,
           p95LatencyMs: BigInt(slaReport.p95LatencyMs),
           availabilityBps: slaReport.availabilityBps,
           deliveredUnits: BigInt(slaReport.deliveredUnits),
@@ -144,7 +164,7 @@ async function runLocalSimulation() {
       console.log(`Settlement Tx Submitted: ${hash}`);
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       console.log(`✅ Settled on Monad Testnet in block ${receipt.blockNumber}! Status: ${receipt.status}`);
-      console.log(`MonadVision Explorer: https://testnet.monadexplorer.com/tx/${hash}`);
+      console.log(`MonadScan Explorer: https://testnet.monadscan.com/tx/${hash}`);
     } catch (err: any) {
       console.warn(`[SettlementController] On-chain broadcast notice: ${err.shortMessage || err.message}`);
     }

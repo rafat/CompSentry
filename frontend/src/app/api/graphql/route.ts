@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COMPSENTRY } from "@/config/compsentry";
-import { fetchContractOnChain, fetchSettlementsOnChain } from "@/lib/onchainFallback";
+import { fetchContractOnChain, fetchSettlementsOnChain, fetchOfferOnChain } from "@/lib/onchainFallback";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +49,19 @@ export async function POST(req: NextRequest) {
     // Fallback: If Envio is behind or missing live contract data, query Monad Testnet RPC directly
     if (body.query) {
       const q = body.query as string;
+
+      // 0. Single Offer Query (SLAOffer_by_pk)
+      if (q.includes("SLAOffer_by_pk")) {
+        const offerId = body.variables?.id;
+        if (offerId && (!data?.data?.SLAOffer_by_pk)) {
+          const onchainOffer = await fetchOfferOnChain(offerId);
+          if (onchainOffer) {
+            data = data || { data: {} };
+            data.data = data.data || {};
+            data.data.SLAOffer_by_pk = onchainOffer;
+          }
+        }
+      }
 
       // 1. Single Contract Query (SLAContract_by_pk)
       if (q.includes("SLAContract_by_pk")) {

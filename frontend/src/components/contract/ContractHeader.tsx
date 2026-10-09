@@ -35,12 +35,12 @@ export function ContractHeader({ contract }: ContractHeaderProps) {
 
         {/* Monad Explorer Link */}
         <a
-          href={COMPSENTRY.explorer.txUrl(contract.id)}
+          href={COMPSENTRY.explorer.addressUrl(COMPSENTRY.contracts.hub)}
           target="_blank"
           rel="noreferrer"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-bg border border-cyber-border hover:border-monad-500 text-cyan-400 font-mono text-xs transition self-start sm:self-auto"
         >
-          <span>MonadVision Explorer</span>
+          <span>MonadScan Contract</span>
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>

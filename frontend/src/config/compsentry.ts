@@ -37,9 +37,9 @@ export const COMPSENTRY = {
     },
   ],
   explorer: {
-    baseUrl: "https://testnet.monadvision.com",
-    txUrl: (tx: string) => `https://testnet.monadvision.com/tx/${tx}`,
-    addressUrl: (addr: string) => `https://testnet.monadvision.com/address/${addr}`,
+    baseUrl: "https://testnet.monadscan.com",
+    txUrl: (tx: string) => `https://testnet.monadscan.com/tx/${tx}`,
+    addressUrl: (addr: string) => `https://testnet.monadscan.com/address/${addr}`,
   },
   resourceMetadata: {
     "0xf37913391db8ae88e6202ba99fc5299a7d4dd5c992fddcfea2ad6579d269ffe2": {

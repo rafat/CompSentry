@@ -184,3 +184,48 @@ export async function fetchSettlementsOnChain(contractId: string) {
     return [];
   }
 }
+
+export async function fetchOfferOnChain(offerId: string) {
+  try {
+    const offer = (await publicClient.readContract({
+      address: HUB_ADDRESS,
+      abi: ComputeSLAHubABI,
+      functionName: "getOffer",
+      args: [offerId as `0x${string}`]
+    })) as any;
+
+    if (!offer || !offer.provider || offer.provider === "0x0000000000000000000000000000000000000000") {
+      return null;
+    }
+
+    return {
+      id: offerId,
+      provider: {
+        id: offer.provider,
+        priScore: "5000",
+        totalContracts: 1,
+        activeContracts: 1,
+        totalEarned: "0",
+        totalSlashed: "0",
+        breachCount: 0,
+        compliantEpochsCount: 0
+      },
+      token: offer.token,
+      resourceId: offer.resourceId,
+      serviceFee: offer.serviceFee.toString(),
+      bondBps: offer.bondBps.toString(),
+      availabilityThresholdBps: offer.availabilityThresholdBps.toString(),
+      latencyThresholdMs: offer.latencyThresholdMs.toString(),
+      epochDuration: offer.epochDuration.toString(),
+      totalEpochs: offer.totalEpochs.toString(),
+      epochPayoutCap: offer.epochPayoutCap.toString(),
+      maxTotalPayout: offer.maxTotalPayout.toString(),
+      active: Boolean(offer.active),
+      createdAtBlock: "69365464",
+      createdAtTimestamp: Math.floor(Date.now() / 1000).toString()
+    };
+  } catch (err) {
+    console.warn("[OnChainFallback] fetchOfferOnChain error:", err);
+    return null;
+  }
+}
