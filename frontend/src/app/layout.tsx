@@ -9,6 +9,11 @@ const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" }
 export const metadata: Metadata = {
   title: "CompSentry | Autonomous SLA Micro-Settlement for AI Compute on Monad",
   description: "Deterministic micro-epoch SLA arbitration, Chainlink CRE consensus, and dual-collateral performance vaults on Monad.",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
