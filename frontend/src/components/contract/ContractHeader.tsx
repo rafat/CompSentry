@@ -1,19 +1,28 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { SLAContract } from "@/types";
 import { SLAHealthBadge } from "@/components/common/SLAHealthBadge";
 import { shortenAddress, shortenHash, resolveResourceMetadata, formatTimestamp } from "@/lib/formatting";
 import { COMPSENTRY } from "@/config/compsentry";
-import { ExternalLink, Clock, ShieldCheck, User, Server } from "lucide-react";
+import { ExternalLink, Clock, ShieldCheck, User, Server, Copy, Check } from "lucide-react";
 
 interface ContractHeaderProps {
   contract: SLAContract;
 }
 
 export function ContractHeader({ contract }: ContractHeaderProps) {
+  const [copied, setCopied] = useState(false);
   const metadata = resolveResourceMetadata(contract.offer?.resourceId);
   const totalEpochs = Number(contract.totalEpochs || 20);
   const settledEpochs = Number(contract.settledEpochsCount || 0);
   const progressPercent = Math.min(100, Math.round((settledEpochs / totalEpochs) * 100));
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(contract.id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="bg-cyber-card border border-cyber-border rounded-xl p-6 space-y-6">
@@ -21,9 +30,28 @@ export function ContractHeader({ contract }: ContractHeaderProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-cyber-border">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white font-mono tracking-tight">
-              SLA Contract #{shortenHash(contract.id)}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white font-mono tracking-tight" title={contract.id}>
+                SLA Contract #{shortenHash(contract.id)}
+              </h1>
+              <button
+                onClick={handleCopy}
+                className="p-1 rounded bg-cyber-bg/80 border border-cyber-border/60 hover:border-cyan-500/50 text-gray-400 hover:text-cyan-400 transition flex items-center gap-1 text-xs font-mono"
+                title="Copy full Contract ID"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    <span className="text-[10px] text-emerald-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="text-[10px] text-gray-400">Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
             <SLAHealthBadge status={contract.status} />
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-gray-400">
