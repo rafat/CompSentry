@@ -215,6 +215,12 @@ async function runLocalSimulation() {
           }
 
           const freshNow = BigInt(Math.floor(Date.now() / 1000));
+          if (freshNow > expectedEnd + 30n) {
+            console.warn(`\n⚠️  [Epoch Window Expired] Epoch ${targetEpoch} ended at ${new Date(Number(expectedEnd) * 1000).toLocaleTimeString()} (${Number(freshNow - expectedEnd)}s ago).`);
+            console.warn(`   The on-chain SettlementController enforces strict real-time telemetry windows (max 30s delay).`);
+            console.warn(`   Please activate a fresh rental and trigger 'bun run-epoch' immediately upon contract activation.\n`);
+          }
+
           targetTimestamp = freshNow > expectedEnd ? expectedEnd : freshNow;
           if (targetTimestamp < expectedStart) {
             targetTimestamp = expectedStart;
