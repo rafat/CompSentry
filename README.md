@@ -1,4 +1,4 @@
-# CompSentry 🛡️⚡
+# CompSentry
 
 > **Capital-Efficient Compute SLA Protection Market on Monad, Powered by Chainlink Runtime Environment (CRE) Consensus & Envio HyperIndex**
 
@@ -13,46 +13,55 @@ CompSentry is a decentralized performance-assurance protocol for decentralized A
 
 ---
 
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Compute Infrastructure & Observers
-        GPU[AI / GPU Inference Cluster]
-        OB1[Observer 1: Cloud Run Probe]
-        OB2[Observer 2: Cloud Run Probe]
-        OB3[Observer 3: Cloud Run Probe]
-        GPU --> OB1 & OB2 & OB3
+    subgraph Compute ["Compute Infrastructure & Observers"]
+        GPU["AI / GPU Inference Cluster"]
+        OB1["Observer 1: Cloud Run Probe"]
+        OB2["Observer 2: Cloud Run Probe"]
+        OB3["Observer 3: Cloud Run Probe"]
+        GPU --> OB1
+        GPU --> OB2
+        GPU --> OB3
     end
 
-    subgraph Chainlink Runtime Environment (CRE)
-        CRON[Cron / Daemon Trigger]
-        SYNC[Read Monad SLA State & Epoch Window]
-        FETCH[Fetch Signed Telemetry from Observers]
-        QUORUM[Deterministic Quorum & Median Consensus]
-        HASH[Generate Keccak256 Evidence Hash]
-        SIGN[Construct SLAReport]
+    subgraph CRE ["Chainlink Runtime Environment (CRE)"]
+        CRON["Cron / Daemon Trigger"]
+        SYNC["Read Monad SLA State & Epoch Window"]
+        FETCH["Fetch Signed Telemetry from Observers"]
+        QUORUM["Deterministic Quorum & Median Consensus"]
+        HASH["Generate Keccak256 Evidence Hash"]
+        SIGN["Construct SLAReport"]
 
-        CRON --> SYNC --> FETCH
-        OB1 & OB2 & OB3 -.->|HTTPS / Telemetry| FETCH
-        FETCH --> QUORUM --> HASH --> SIGN
+        CRON --> SYNC
+        SYNC --> FETCH
+        OB1 -.->|HTTPS / Telemetry| FETCH
+        OB2 -.->|HTTPS / Telemetry| FETCH
+        OB3 -.->|HTTPS / Telemetry| FETCH
+        FETCH --> QUORUM
+        QUORUM --> HASH
+        HASH --> SIGN
     end
 
-    subgraph Monad Testnet (Chain ID 10143)
-        HUB[ComputeSLAHub.sol]
-        SETTLE[SettlementController.sol]
-        VAULT[CollateralVault.sol]
+    subgraph Monad ["Monad Testnet (Chain ID 10143)"]
+        HUB["ComputeSLAHub.sol"]
+        SETTLE["SettlementController.sol"]
+        VAULT["CollateralVault.sol"]
 
         SIGN -->|settleEpoch / report| SETTLE
         HUB -->|Activate Contract| VAULT
         SETTLE -->|Execute Fee / Rebate / Slash| VAULT
     end
 
-    subgraph Analytics & Experience
-        ENVIO[Envio HyperIndex]
-        UI[CompSentry Next.js Dashboard]
+    subgraph Analytics ["Analytics & Experience"]
+        ENVIO["Envio HyperIndex"]
+        UI["CompSentry Next.js Dashboard"]
         
-        HUB & SETTLE & VAULT -->|Emit Events| ENVIO
+        HUB -->|Emit Events| ENVIO
+        SETTLE -->|Emit Events| ENVIO
+        VAULT -->|Emit Events| ENVIO
         ENVIO -->|GraphQL API| UI
         SETTLE -.->|Direct Monad RPC Fallback| UI
         UI -->|Rent Compute / Manage| HUB
@@ -61,7 +70,7 @@ flowchart TD
 
 ---
 
-## 🚀 Live Deployment Information
+## Live Deployment Information
 
 All smart contracts are deployed and verified on **Monad Testnet**.
 
@@ -87,7 +96,7 @@ All smart contracts are deployed and verified on **Monad Testnet**.
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 CompSentry/
@@ -118,7 +127,7 @@ CompSentry/
 
 ---
 
-## 🛠️ Local Installation & Setup
+## Local Installation & Setup
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) v18+ or [Bun](https://bun.sh/) v1.1+
@@ -174,7 +183,7 @@ NEXT_PUBLIC_EVALUATOR_URL=http://localhost:4000
 
 ---
 
-## 🏃 Running the Protocol
+## Running the Protocol
 
 You can run CompSentry in either a **Fully Local Setup** (local observers and telemetry server) or an **Online Setup** (hosted Cloud Run observers).
 
@@ -245,7 +254,7 @@ CRE_CONTRACT=0x<CONTRACT_ID> CRE_ENV=online bun run-epoch
 
 ---
 
-### ⚡ Outage & SLA Breach Injection (GUI-Driven)
+### Outage & SLA Breach Injection (GUI-Driven)
 
 Outage and thermal throttling simulations are triggered directly from the **Dashboard GUI**:
 1. Open your active rental in the **SLA Cockpit** on the frontend.
@@ -255,7 +264,7 @@ Outage and thermal throttling simulations are triggered directly from the **Dash
 
 ---
 
-## 🧪 Testing Suites
+## Testing Suites
 
 ### 1. Smart Contract Test Suite (Foundry)
 CompSentry features a 32-test suite including unit tests, strict economic caps, boundary checks, and property-based invariant fuzzing:
@@ -288,7 +297,7 @@ npm run build
 
 ---
 
-## 📊 Envio HyperIndex Setup
+## Envio HyperIndex Setup
 
 The Envio indexer ingests on-chain events from Monad Testnet and exposes a unified GraphQL endpoint:
 
@@ -310,6 +319,6 @@ pnpm start
 
 ---
 
-## 📜 License
+## License
 
 MIT License. Open source for the Monad & Chainlink ecosystem.
