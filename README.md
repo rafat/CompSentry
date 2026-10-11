@@ -150,7 +150,10 @@ Create `.env` in `cre/compsentry-workflow/`:
 ```bash
 DEPLOYER_PRIVATE_KEY=0x<YOUR_PRIVATE_KEY>
 MONAD_RPC_URL=https://testnet-rpc.monad.xyz
-CRE_ENV=online
+
+# Note:
+# - Leave CRE_ENV unset (or set CRE_ENV=local) for local installs with local observers (reads config.json).
+# - Set CRE_ENV=online ONLY when connecting to Google Cloud Run hosted observers (reads config.online.json).
 ```
 
 Create `.env.local` in `frontend/`:
@@ -159,37 +162,96 @@ NEXT_PUBLIC_HUB_ADDRESS=0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB
 NEXT_PUBLIC_CONTROLLER_ADDRESS=0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f
 NEXT_PUBLIC_VAULT_ADDRESS=0xFF3260a3aab725b4BbBf9A94A57A5718196E5a73
 NEXT_PUBLIC_MOCK_USDC_ADDRESS=0xF35e93EaeE4c6dCfA24eb0BD6aE1164c8a0ffB64
-NEXT_PUBLIC_INDEXER_GRAPHQL_URL=https://indexer.dev.hyperindex.xyz/4f8a17a/v1/graphql
+
+# For local development with local services:
+NEXT_PUBLIC_INDEXER_GRAPHQL_URL=http://localhost:8080/v1/graphql
+NEXT_PUBLIC_EVALUATOR_URL=http://localhost:4000
+
+# Or for hosted production endpoints:
+# NEXT_PUBLIC_INDEXER_GRAPHQL_URL=https://indexer.bigdevenergy.link/09ef97e/v1/graphql
+# NEXT_PUBLIC_EVALUATOR_URL=https://compsentry-provider-961098530006.asia-south1.run.app
 ```
 
 ---
 
 ## 🏃 Running the Protocol
 
-### 1. Start the Frontend Application
+You can run CompSentry in either a **Fully Local Setup** (local observers and telemetry server) or an **Online Setup** (hosted Cloud Run observers).
+
+---
+
+### Option A: Fully Local Setup (Local Observers & Telemetry)
+
+#### 1. Start Local Telemetry Evaluator & 3 Observers
+
+You can run the full telemetry stack natively or via Docker containers:
+
+**Method 1: Native Node / TSX (Recommended)**
+```bash
+cd services
+pnpm install
+pnpm start:all
+```
+This single command spins up:
+- **Evaluator / Compute Simulator**: `http://localhost:4000` (handles mock inference & scenario controls)
+- **Observer 1**: `http://localhost:4001`
+- **Observer 2**: `http://localhost:4002`
+- **Observer 3**: `http://localhost:4003`
+
+**Method 2: Docker Containers**
+```bash
+# Start local compute provider
+cd services/compute-provider
+docker build -t compsentry-provider .
+docker run -d -p 4000:8080 -e PORT=8080 compsentry-provider
+
+# Start the 3 independent observer probe containers
+cd ../observer
+docker build -t compsentry-observer .
+docker run -d -p 4001:8080 -e OBSERVER_ID=observer-1 -e PROVIDER_URL=http://host.docker.internal:4000 compsentry-observer
+docker run -d -p 4002:8080 -e OBSERVER_ID=observer-2 -e PROVIDER_URL=http://host.docker.internal:4000 compsentry-observer
+docker run -d -p 4003:8080 -e OBSERVER_ID=observer-3 -e PROVIDER_URL=http://host.docker.internal:4000 compsentry-observer
+```
+
+#### 2. Start the Frontend Dashboard
 ```bash
 cd frontend
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the Marketplace and Live SLA Dashboard.
+Open [http://localhost:3000](http://localhost:3000) to activate compute rentals and view the live dashboard.
 
-### 2. Run the Autonomous CRE Settlement Engine
-The CRE workflow runs continuously for the full duration of a compute rental (settling every 30-second epoch):
+#### 3. Run the Autonomous CRE Settlement Engine (Local Mode)
+For local installations, do **not** set `CRE_ENV=online`. Omitting `CRE_ENV` automatically directs CRE to `config.json` (`http://localhost:4001-4003/telemetry`):
 
 ```bash
 cd cre/compsentry-workflow
 
-# Run continuously for an active rental
+# Runs continuously across the full rental duration (settling every 30s):
+CRE_CONTRACT=0x<CONTRACT_ID> bun run-epoch
+```
+
+---
+
+### Option B: Online / Cloud Run Setup (Hosted Observers)
+
+If you are using the live Google Cloud Run observers:
+
+```bash
+cd cre/compsentry-workflow
+
+# Specifies config.online.json pointing to Cloud Run observer URLs:
 CRE_CONTRACT=0x<CONTRACT_ID> CRE_ENV=online bun run-epoch
 ```
 
-#### Interactive Outage Simulation:
-While the CRE runner is active in your terminal:
-- Press **`o` + Enter** at any time to toggle an SLA outage breach on the upcoming epoch.
-- Or pass `--outage-epoch 2` to automatically settle Epoch 1 compliantly and breach Epoch 2:
-  ```bash
-  CRE_CONTRACT=0x<CONTRACT_ID> CRE_ENV=online bun run-epoch --outage-epoch 2
-  ```
+---
+
+### ⚡ Outage & SLA Breach Injection (GUI-Driven)
+
+Outage and thermal throttling simulations are triggered directly from the **Dashboard GUI**:
+1. Open your active rental in the **SLA Cockpit** on the frontend.
+2. Under **Scenario Controls**, click **High Latency** (simulates GPU thermal throttling, ~440ms P95 latency) or **Outage** (simulates CUDA OOM / HTTP 503).
+3. The observers continuously query the compute provider and detect the real degraded metrics.
+4. When the next 30-second epoch window concludes, Chainlink CRE queries the observers, confirms consensus on the SLA breach, and submits the settlement transaction to Monad to execute buyer rebates and bond slashing automatically.
 
 ---
 
