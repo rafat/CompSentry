@@ -13,9 +13,9 @@ const monadTestnet = {
   }
 } as const;
 
-const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
 if (!privateKey) {
-  throw new Error("DEPLOYER_PRIVATE_KEY environment variable is required to submit on-chain settlements.");
+  throw new Error("DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable is required to submit on-chain settlements.");
 }
 const account = privateKeyToAccount(privateKey as `0x${string}`);
 

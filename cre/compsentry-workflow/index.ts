@@ -229,9 +229,9 @@ async function main() {
   const controllerAddress = (config.evm.settlementControllerAddress || "0x8ef7455e8d01C85Af8ed9CFcc0274f4125737e2f") as `0x${string}`;
   const hubAddress = (config.evm.hubAddress || "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB") as `0x${string}`;
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY;
   if (!privateKey && process.env.SUBMIT_ONCHAIN !== "false") {
-    throw new Error("DEPLOYER_PRIVATE_KEY environment variable is required to submit on-chain settlements.");
+    throw new Error("DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable is required to submit on-chain settlements.");
   }
 
   const account = privateKey ? privateKeyToAccount(privateKey as `0x${string}`) : undefined;
