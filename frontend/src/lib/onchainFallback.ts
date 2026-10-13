@@ -4,18 +4,20 @@ import SettlementControllerABI from "@/abis/SettlementController.json";
 import CollateralVaultABI from "@/abis/CollateralVault.json";
 import { COMPSENTRY } from "@/config/compsentry";
 
+const MONAD_RPC_URL = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
+
 const monadTestnet = {
   id: 10143,
   name: "Monad Testnet",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: {
-    default: { http: ["https://testnet-rpc.monad.xyz"] },
+    default: { http: [MONAD_RPC_URL] },
   },
 } as const;
 
 export const publicClient = createPublicClient({
   chain: monadTestnet,
-  transport: http("https://testnet-rpc.monad.xyz"),
+  transport: http(MONAD_RPC_URL),
 });
 
 export const HUB_ADDRESS = (process.env.NEXT_PUBLIC_HUB_ADDRESS || "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB") as `0x${string}`;

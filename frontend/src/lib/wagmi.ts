@@ -2,6 +2,8 @@ import { http, createConfig } from "wagmi";
 import { defineChain } from "viem";
 import { injected } from "wagmi/connectors";
 
+const monadRpcUrl = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
+
 export const monadTestnet = defineChain({
   id: 10143,
   name: "Monad Testnet",
@@ -12,7 +14,7 @@ export const monadTestnet = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ["https://testnet-rpc.monad.xyz"],
+      http: [monadRpcUrl],
     },
   },
   blockExplorers: {
@@ -46,7 +48,7 @@ export const config = createConfig({
     injected(),
   ],
   transports: {
-    [monadTestnet.id]: http(),
+    [monadTestnet.id]: http(monadRpcUrl),
     [anvilLocal.id]: http(),
   },
   ssr: true,
