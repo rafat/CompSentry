@@ -1,3 +1,4 @@
+# Envio HyperIndex configuration for CompSentry on Monad Testnet (Chain ID 10143)
 name: compsentry-indexer
 description: "Envio HyperIndex for CompSentry SLA Micro-Settlement on Monad"
 schema: schema.graphql
