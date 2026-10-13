@@ -82,7 +82,7 @@ export interface IncidentData {
   aiExplanation?: string;
 }
 
-const INDEXER_GRAPHQL_URL = process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL || "http://localhost:8080/v1/graphql";
+const INDEXER_GRAPHQL_URL = process.env.NEXT_PUBLIC_INDEXER_GRAPHQL_URL || "/api/graphql";
 const EVALUATOR_URL = process.env.NEXT_PUBLIC_EVALUATOR_URL || "http://localhost:4000";
 
 // Fetch System Metrics from Envio
