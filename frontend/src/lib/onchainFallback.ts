@@ -4,7 +4,7 @@ import SettlementControllerABI from "@/abis/SettlementController.json";
 import CollateralVaultABI from "@/abis/CollateralVault.json";
 import { COMPSENTRY } from "@/config/compsentry";
 
-const MONAD_RPC_URL = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
+const MONAD_RPC_URL = process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz";
 
 const monadTestnet = {
   id: 10143,

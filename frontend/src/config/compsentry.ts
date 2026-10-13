@@ -5,7 +5,7 @@ export const COMPSENTRY = {
     symbol: "MON",
     decimals: 18,
   },
-  rpcUrl: process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://testnet-rpc.monad.xyz",
+  rpcUrl: process.env.MONAD_RPC_URL || "https://testnet-rpc.monad.xyz",
   contracts: {
     hub: (process.env.NEXT_PUBLIC_HUB_ADDRESS || "0x0fD55d06B382C72d8b95f5Bf9Ae1682D079B79bB") as `0x${string}`,
     vault: (process.env.NEXT_PUBLIC_VAULT_ADDRESS || "0xFF3260a3aab725b4BbBf9A94A57A5718196E5a73") as `0x${string}`,
