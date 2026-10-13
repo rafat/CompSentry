@@ -38,6 +38,8 @@ chains:
       url: "https://10143.hypersync.xyz"
     rpc:
       - url: "https://testnet-rpc.monad.xyz"
+        for: fallback
+      - url: "https://testnet-rpc.monad.xyz"
         for: realtime
     contracts:
       - name: ComputeSLAHub
